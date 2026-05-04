@@ -9,11 +9,7 @@ interface UseFocusTimerProps {
 }
 
 export function useFocusTimer({ startedAt, durationMinutes, status }: UseFocusTimerProps) {
-    const [now, setNow] = useState(0)
-
-  useEffect(() => {
-    setNow(Date.now());
-  }, []);
+    const [now, setNow] = useState(() => (typeof window !== 'undefined' ? Date.now() : 0))
 
   useEffect(() => {
     if (status !== 'active') return

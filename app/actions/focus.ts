@@ -98,7 +98,7 @@ export async function startFocusSession(taskId: string, projectId: string) {
 
 export async function incrementDistraction(sessionId: string) {
   const supabase = await createClient()
-  const { data: session } = await supabase.from('focus_sessions').select('distractions_count').eq('id', sessionId).single()
+  const { data: session } = await supabase.from('focus_sessions').select('distractions_count, task_id').eq('id', sessionId).single()
 
   if (session) {
     await supabase.from('focus_sessions').update({
@@ -106,8 +106,9 @@ export async function incrementDistraction(sessionId: string) {
     }).eq('id', sessionId)
 
     // Attempt to revalidate if we can find the project
-    if (session.task_id) {
-      const { data: taskData } = await supabase.from('tasks').select('project_id').eq('id', session.task_id).single()
+    const s = session as any
+    if (s.task_id) {
+      const { data: taskData } = await supabase.from('tasks').select('project_id').eq('id', s.task_id).single()
       if (taskData?.project_id) {
         revalidatePath(`/dashboard/projects/${taskData.project_id}`)
       }

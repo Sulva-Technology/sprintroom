@@ -61,7 +61,7 @@ export function SchedulePomodoroDialog({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
         <h2 className="text-xl font-bold text-slate-900 mb-2">Schedule Focus Session</h2>
         <p className="text-sm text-slate-500 mb-6">
-          Set a time for your next Pomodoro. We'll send you a warning 5 minutes before it auto-starts.
+          Set a time for your next Pomodoro. We&apos;ll send you a warning 5 minutes before it auto-starts.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -9,17 +9,23 @@ export function usePushNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
 
   useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      setIsSupported(true);
-      setPermission(Notification.permission);
+    const checkSupport = () => {
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setIsSupported(true);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPermission(Notification.permission);
 
-      // Check current subscription status
-      navigator.serviceWorker.ready.then(registration => {
-        registration.pushManager.getSubscription().then(subscription => {
-          setIsSubscribed(subscription !== null);
+        // Check current subscription status
+        navigator.serviceWorker.ready.then(registration => {
+          registration.pushManager.getSubscription().then(subscription => {
+            setIsSubscribed(subscription !== null);
+          });
         });
-      });
-    }
+      }
+    };
+
+    checkSupport();
   }, []);
 
   // Utility to convert base64 VAPID key to Uint8Array

@@ -30,6 +30,7 @@ export function GlobalSearch() {
   // Debounced search effect
   React.useEffect(() => {
     if (!search) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults({ tasks: [], projects: [] })
       return
     }

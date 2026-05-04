@@ -45,7 +45,7 @@ export function InviteMemberDialog({
           </div>
           <DialogTitle>Invite Team Member</DialogTitle>
           <DialogDescription>
-            Enter the email address of the person you'd like to invite to this workspace.
+            Enter the email address of the person you&apos;d like to invite to this workspace.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
