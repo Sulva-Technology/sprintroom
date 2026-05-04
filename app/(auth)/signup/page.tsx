@@ -73,8 +73,8 @@ export default function SignupPage() {
             We&apos;ve sent a confirmation link to your email address. Please click the link to verify your account.
           </p>
         </div>
-        <Button asChild variant="outline" className="h-11 rounded-xl">
-          <Link href="/login">Return to login</Link>
+        <Button render={<Link href="/login" />} variant="outline" className="h-11 rounded-xl">
+          Return to login
         </Button>
       </div>
     )
