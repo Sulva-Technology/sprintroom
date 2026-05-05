@@ -47,11 +47,9 @@ export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100" onClick={() => setOpen(true)} type="button">
-          <CalendarClock className="w-3.5 h-3.5" />
-          Schedule Focus
-        </Button>
+      <DialogTrigger render={<Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100" />}>
+        <CalendarClock className="w-3.5 h-3.5" />
+        Schedule Focus
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] rounded-2xl p-6">
         <DialogHeader>

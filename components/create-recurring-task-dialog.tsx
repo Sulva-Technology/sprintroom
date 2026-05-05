@@ -62,11 +62,9 @@ export function CreateRecurringTaskDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full" onClick={() => setOpen(true)} type="button">
-          <Plus className="w-3.5 h-3.5" />
-          Add Rule
-        </Button>
+      <DialogTrigger render={<Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full" />}>
+        <Plus className="w-3.5 h-3.5" />
+        Add Rule
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] rounded-2xl p-6">
         <DialogHeader>
