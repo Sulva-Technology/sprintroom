@@ -30,6 +30,23 @@ export async function cacheTasks(tasks: any[]) {
   ])
 }
 
+/**
+ * Cache complete task details including checklists and comments
+ */
+export async function cacheTaskDetails(taskId: string, details: any) {
+  const db = await getDB()
+  if (!db) return
+
+  // Store the main task
+  if (details.task) {
+    await db.put('cached_tasks', details.task)
+  }
+
+  // Store the full details object in a dedicated store if needed,
+  // or just ensure the main task store has everything.
+  // For now we just ensure the task is in the cache.
+}
+
 export async function getCachedTasks(projectId: string) {
   const db = await getDB()
   if (!db) return []
@@ -40,4 +57,10 @@ export async function getCachedProjects(workspaceId: string) {
   const db = await getDB()
   if (!db) return []
   return db.getAllFromIndex('cached_projects', 'by-workspace', workspaceId)
+}
+
+export async function getCachedTask(taskId: string) {
+  const db = await getDB()
+  if (!db) return null
+  return db.get('cached_tasks', taskId)
 }

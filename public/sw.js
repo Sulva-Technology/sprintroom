@@ -40,25 +40,30 @@ self.addEventListener('fetch', (event) => {
   // 2. Skip Supabase / External APIs (handled by lib/offline)
   if (url.hostname.includes('supabase.co')) return;
 
-  // 3. For Static Assets (JS, CSS, Fonts, Images)
-  // Use Cache-First strategy to make it feel like a local app
+  // 3. For Static Assets & Next.js Data
+  // Use Cache-First for assets, Stale-While-Revalidate for data
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/static/') ||
     url.pathname.endsWith('.woff2') ||
     url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.svg')
+    url.pathname.endsWith('.svg') ||
+    url.pathname.includes('/_next/data/') // Cache Next.js pre-fetch data
   ) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) return cachedResponse;
-        return fetch(request).then((networkResponse) => {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
+        const fetchPromise = fetch(request).then((networkResponse) => {
+          if (networkResponse.ok) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
           return networkResponse;
         });
+
+        // For assets, return cache immediately. For data, we can be more flexible.
+        return cachedResponse || fetchPromise;
       })
     );
     return;
