@@ -26,7 +26,7 @@ const projectSchema = z.object({
 export function CreateProjectDialog({ trigger, defaultOpen = false }: { trigger?: React.ReactElement; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<{ name?: string; description?: string; root?: { message: string; details: string; } }>({})
+  const [errors, setErrors] = useState<{ name?: string; description?: string; root?: { message: string; details?: any; } }>({})
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -107,7 +107,7 @@ export function CreateProjectDialog({ trigger, defaultOpen = false }: { trigger?
 
           {errors.root && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
-              {errors.root.message}{errors.root.details && ` (Details: ${errors.root.details})`}
+              {errors.root.message}{errors.root.details && ` (Details: ${typeof errors.root.details === 'string' ? errors.root.details : JSON.stringify(errors.root.details)})`}
             </div>
           )}
 

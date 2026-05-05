@@ -18,10 +18,11 @@ import { scheduleFocusSession } from '@/app/actions/scheduling'
 export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId?: string, projectId?: string, workspaceId?: string }) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  
+  const [error, setError] = useState<{ message: string; details?: any } | null>(null)
+
   // Default to +5 minutes from now
   const defaultTime = new Date(Date.now() + 5 * 60000)
-  const defaultDateStr = defaultTime.toISOString().slice(0, 16) // "yyyy-MM-ddThh:mm" format
+  const defaultDateStr = new Date(defaultTime.getTime() - defaultTime.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 
   const [startTime, setStartTime] = useState(defaultDateStr)
   const [duration, setDuration] = useState('25')
@@ -29,28 +30,39 @@ export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
-    // Parse the local datetime input into ISO string
-    const startTimeISO = new Date(startTime).toISOString()
+    setError(null)
 
-    await scheduleFocusSession(
-      taskId || null,
-      projectId || null,
-      workspaceId || null,
-      startTimeISO,
-      parseInt(duration)
-    )
+    try {
+      const res = await scheduleFocusSession({
+        task_id: taskId || null,
+        project_id: projectId || null,
+        workspace_id: workspaceId || null,
+        start_time: new Date(startTime).toISOString(),
+        duration_minutes: parseInt(duration)
+      })
 
-    setIsLoading(false)
-    setOpen(false)
+      if (res.success) {
+        setOpen(false)
+      } else {
+        setError(res.error || { message: 'Failed to schedule.' })
+      }
+    } catch (err: any) {
+      setError({ message: 'Something went wrong.', details: err.message })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100" />}>
-        <CalendarClock className="w-3.5 h-3.5" />
-        Schedule Focus
-      </DialogTrigger>
+      <DialogTrigger
+        render={(
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-full border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100">
+            <CalendarClock className="w-3.5 h-3.5" />
+            Schedule Focus
+          </Button>
+        )}
+      />
       <DialogContent className="sm:max-w-[425px] rounded-2xl p-6">
         <DialogHeader>
           <DialogTitle>Schedule Focus Session</DialogTitle>
@@ -67,7 +79,7 @@ export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               required
-              className="rounded-xl shadow-sm"
+              className="rounded-xl shadow-sm h-11"
               disabled={isLoading}
             />
           </div>
@@ -82,13 +94,19 @@ export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
               required
-              className="rounded-xl shadow-sm"
+              className="rounded-xl shadow-sm h-11"
               disabled={isLoading}
             />
           </div>
 
+          {error && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
+              {error.message}{error.details && ` (Details: ${typeof error.details === 'string' ? error.details : JSON.stringify(error.details)})`}
+            </div>
+          )}
+
           <div className="pt-4 flex justify-end">
-            <Button type="submit" disabled={isLoading} className="rounded-xl shadow-md w-full bg-amber-500 hover:bg-amber-600 text-white">
+            <Button type="submit" disabled={isLoading} className="rounded-xl shadow-md w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold">
               {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Schedule Session
             </Button>

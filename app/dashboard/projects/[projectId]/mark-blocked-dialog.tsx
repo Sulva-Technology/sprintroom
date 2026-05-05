@@ -27,7 +27,7 @@ export function MarkBlockedDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<{ message: string; details: string; } | null>(null)
+  const [error, setError] = useState<{ message: string; details?: any; } | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -84,7 +84,7 @@ export function MarkBlockedDialog({
 
           {error && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
-              {error.message}{error.details && ` (Details: ${error.details})`}
+              {error.message}{error.details && ` (Details: ${typeof error.details === 'string' ? error.details : JSON.stringify(error.details)})`}
             </div>
           )}
 

@@ -22,7 +22,7 @@ import { addToSyncQueue } from '@/lib/offline/sync-queue'
 export function CreateTaskDialog({ projectId, trigger }: { projectId: string; trigger?: React.ReactElement }) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<{ message: string; details: string; } | null>(null)
+  const [error, setError] = useState<{ message: string; details?: any; } | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -156,7 +156,7 @@ export function CreateTaskDialog({ projectId, trigger }: { projectId: string; tr
 
           {error && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium">
-              {error.message}{error.details && ` (Details: ${error.details})`}
+              {error.message}{error.details && ` (Details: ${typeof error.details === 'string' ? error.details : JSON.stringify(error.details)})`}
             </div>
           )}
 

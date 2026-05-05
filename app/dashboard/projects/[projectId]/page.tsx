@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress'
 import Link from 'next/link'
 import { BoardClient } from './board-client'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { RecurringTaskDialog } from './recurring-task-dialog'
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ projectId: string }> }) {
   const supabase = await createClient()
@@ -113,6 +114,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
 
            {/* Actions */}
            <div className="flex items-center gap-3">
+             <RecurringTaskDialog projectId={project.id} />
              <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="rounded-full shadow-sm bg-white hover:bg-slate-50 border-border h-9">
                  <Activity className="w-4 h-4 mr-2" />
                  View Pulse
