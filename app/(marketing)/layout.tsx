@@ -22,7 +22,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <Link href="/login" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
               Log in
             </Link>
-            <Button render={<Link href="/login" />} className="rounded-full shadow-sm px-5 h-9 font-medium">
+            <Button render={<Link href="/signup" />} className="rounded-full shadow-sm px-5 h-9 font-medium">
               Get Started
             </Button>
           </div>

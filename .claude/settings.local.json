@@ -5,7 +5,8 @@
       "Bash(npx supabase *)",
       "Bash(npx web-push *)",
       "Bash(npm install *)",
-      "Bash(supabase *)"
+      "Bash(supabase *)",
+      "Bash(npm list *)"
     ]
   }
 }

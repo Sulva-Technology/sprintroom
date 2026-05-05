@@ -62,6 +62,17 @@ export async function resetPassword(formData: FormData) {
   const requestHeaders = await headers()
   const origin = requestHeaders.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
+  // First check if the user exists
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .single()
+
+  if (!profile) {
+    return { error: 'No account found with this email address.' }
+  }
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/update-password`,
   })
