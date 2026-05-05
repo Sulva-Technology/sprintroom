@@ -17,25 +17,11 @@ export function PWAInstaller() {
       return
     }
 
-    // Register Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js').then(
-          function(registration) {
-            console.log('Service Worker registration successful with scope: ', registration.scope)
-          },
-          function(err) {
-            console.log('Service Worker registration failed: ', err)
-          }
-        )
-      })
-    }
-
     // Listen for install prompt event
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      
+
       // Check if user dismissed it recently
       const dismissed = localStorage.getItem('pwa_prompt_dismissed')
       if (!dismissed || Date.now() - parseInt(dismissed) > 86400000) { // 24 hours
@@ -63,7 +49,7 @@ export function PWAInstaller() {
     } else {
       console.log('User dismissed the install prompt')
     }
-    
+
     setDeferredPrompt(null)
   }
 
@@ -94,7 +80,7 @@ export function PWAInstaller() {
             </Button>
           </div>
         </div>
-        <button 
+        <button
           onClick={handleDismiss}
           className="absolute top-2 right-2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
         >
