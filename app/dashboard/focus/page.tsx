@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { formatDistanceToNow, format } from 'date-fns'
 import Link from 'next/link'
+import { ScheduleFocusDialog } from '@/components/schedule-focus-dialog'
+import { UpcomingSchedulesList } from '@/components/upcoming-schedules-list'
 
 export default async function FocusSessionsPage() {
   const supabase = await createClient()
@@ -20,18 +22,28 @@ export default async function FocusSessionsPage() {
     .order('started_at', { ascending: false })
     .limit(20)
 
+  // Fetch upcoming scheduled sessions
+  const now = new Date().toISOString()
+  const { data: upcomingSchedules } = await supabase
+    .from('focus_schedules')
+    .select('*, tasks(title)')
+    .eq('user_id', user.id)
+    .eq('status', 'pending')
+    .gt('start_time', now)
+    .order('start_time', { ascending: true })
+
   // Compute stats
   const completedSessions = sessions?.filter(s => s.status === 'completed') || []
   const totalMinutes = completedSessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0)
   const hours = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
-  
+
   const focusTimeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
 
   const stats = {
     totalSessions: completedSessions.length,
     focusTime: focusTimeStr,
-    avgDistractions: completedSessions.length > 0 
+    avgDistractions: completedSessions.length > 0
       ? (completedSessions.reduce((acc, s) => acc + (s.distractions_count || 0), 0) / completedSessions.length).toFixed(1)
       : '0',
     meaningfulRate: completedSessions.length > 0
@@ -49,7 +61,12 @@ export default async function FocusSessionsPage() {
             Track your deep work intervals and distraction trends.
           </p>
         </div>
+        <div>
+          <ScheduleFocusDialog />
+        </div>
       </div>
+
+      <UpcomingSchedulesList schedules={upcomingSchedules || []} />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -6,7 +6,11 @@
       "Bash(npx web-push *)",
       "Bash(npm install *)",
       "Bash(supabase *)",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Skill(schedule)",
+      "Bash(cron *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }

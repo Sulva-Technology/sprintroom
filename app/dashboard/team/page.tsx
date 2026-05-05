@@ -22,7 +22,7 @@ export default async function TeamPulsePage() {
   // 1. Fetch workspaces the user is part of
   const { data: userWorkspaces } = await supabase
     .from('workspace_members')
-    .select('workspace_id')
+    .select('workspace_id, role')
     .eq('user_id', user.id)
 
   const workspaceIds = userWorkspaces?.map(w => w.workspace_id) || []
@@ -33,6 +33,10 @@ export default async function TeamPulsePage() {
       </div>
     )
   }
+
+  const primaryWorkspaceId = workspaceIds[0]
+  const userRoleInPrimaryWorkspace = userWorkspaces?.find(w => w.workspace_id === primaryWorkspaceId)?.role || 'member'
+  const canInvite = userRoleInPrimaryWorkspace === 'owner' || userRoleInPrimaryWorkspace === 'admin'
 
   // 2. Fetch all members in these workspaces
   const { data: workspaceMembersRaw } = await supabase
@@ -212,7 +216,7 @@ export default async function TeamPulsePage() {
 
   return (
     <div className="h-full flex flex-col pb-12 w-full mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <TeamPulseHeader workspaceId={workspaceIds[0]} />
+      <TeamPulseHeader workspaceId={primaryWorkspaceId} canInvite={canInvite} />
 
       <TeamHealthCard stats={teamStats} insight={insightMsg} />
 
