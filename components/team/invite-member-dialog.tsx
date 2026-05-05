@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { inviteMember } from "@/app/actions/team"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UserPlus, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export function InviteMemberDialog({
   workspaceId,
@@ -28,11 +29,12 @@ export function InviteMemberDialog({
     setIsSubmitting(false)
 
     if (result.success) {
+      toast.success(`Invitation sent to ${email}`)
       setEmail("")
       onOpenChange(false)
-      alert(`Invitation sent to ${email}`)
     } else {
-      alert(result.error || "Failed to send invitation")
+      const err = result.error as any
+      toast.error(err.message || "Failed to send invitation")
     }
   }
 

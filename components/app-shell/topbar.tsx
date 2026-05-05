@@ -9,8 +9,21 @@ import { cn } from '@/lib/utils'
 
 import { SyncStatusPill } from '@/components/offline/sync-status-pill'
 import { GlobalSearch } from './global-search'
+import { WorkspaceSwitcher } from './workspace-switcher'
 
-export function Topbar({ user, profile, activeFocus, workspaces }: { user: any, profile: any, activeFocus: any, workspaces: any[] }) {
+export function Topbar({
+  user,
+  profile,
+  activeFocus,
+  workspaces,
+  activeWorkspaceId
+}: {
+  user: any,
+  profile: any,
+  activeFocus: any,
+  workspaces: any[],
+  activeWorkspaceId?: string
+}) {
   const [isScrolled, setIsScrolled] = useState(false)
 
   return (
@@ -18,11 +31,9 @@ export function Topbar({ user, profile, activeFocus, workspaces }: { user: any, 
       "h-16 px-4 md:px-8 flex items-center justify-between shrink-0 sticky top-0 z-30 transition-shadow",
       isScrolled ? "bg-[#F7F8FA]/80 backdrop-blur-xl border-b border-border/40 shadow-sm" : "bg-transparent"
     )}>
-      {/* Mobile left side structure (empty to push search) or Mobile workspace switcher */}
-      <div className="flex items-center md:hidden">
-         <Link href="/" className="flex items-center">
-           <Image src="/logo.png" alt="SprintRoom Logo" width={160} height={40} className="h-10 w-auto object-contain" priority />
-         </Link>
+      {/* Mobile left side structure: workspace switcher */}
+      <div className="flex items-center md:hidden w-40">
+         <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
       </div>
 
       <div className="flex-1 flex max-w-xl items-center relative">

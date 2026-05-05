@@ -15,14 +15,26 @@ const navItems = [
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
-export function Sidebar({ user, profile, workspaces, recentProjects }: { user: any, profile: any, workspaces: any[], recentProjects?: any[] }) {
+export function Sidebar({
+  user,
+  profile,
+  workspaces,
+  activeWorkspaceId,
+  recentProjects
+}: {
+  user: any,
+  profile: any,
+  workspaces: any[],
+  activeWorkspaceId?: string,
+  recentProjects?: any[]
+}) {
   const pathname = usePathname()
   const displayProjects = recentProjects || []
 
   return (
     <aside className="w-[280px] shrink-0 border-r border-border/40 hidden md:flex flex-col bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 z-20">
       <div className="p-4 flex items-center h-16 shrink-0 border-b border-border/20">
-        <WorkspaceSwitcher workspaces={workspaces} />
+        <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
       </div>
       
       <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 flex flex-col gap-6">

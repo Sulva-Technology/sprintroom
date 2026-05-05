@@ -63,7 +63,10 @@ self.addEventListener('fetch', (event) => {
         });
 
         // For assets, return cache immediately. For data, we can be more flexible.
-        return cachedResponse || fetchPromise;
+        return cachedResponse || fetchPromise.catch(() => {
+          // Return a 404 or empty response for missing assets rather than letting it throw
+          return new Response('Asset not found', { status: 404 });
+        });
       })
     );
     return;
@@ -106,6 +109,20 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => caches.match(request))
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+
+        // If it's a navigation request and we have nothing, return offline page
+        if (request.mode === 'navigate') {
+          return caches.match('/offline');
+        }
+
+        // For anything else, return a simple error response
+        return new Response('Network error occurred', {
+          status: 503,
+          statusText: 'Service Unavailable'
+        });
+      })
   );
 });

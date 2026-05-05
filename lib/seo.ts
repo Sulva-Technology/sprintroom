@@ -66,7 +66,6 @@ export const defaultMetadata: Metadata = {
     shortcut: "/favicon.png",
     apple: "/favicon.png",
   },
-  manifest: absoluteUrl("/manifest.json"),
 };
 
 interface BuildPageMetadataOptions {

@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createTask } from '@/app/actions/tasks'
 import { addToSyncQueue } from '@/lib/offline/sync-queue'
+import { toast } from "sonner"
 
 export function CreateTaskDialog({ projectId, trigger }: { projectId: string; trigger?: React.ReactElement }) {
   const [open, setOpen] = useState(false)
@@ -54,6 +55,7 @@ export function CreateTaskDialog({ projectId, trigger }: { projectId: string; tr
     try {
       if (!navigator.onLine) {
         await addToSyncQueue('create_task', 'task', crypto.randomUUID(), payload, undefined, projectId)
+        toast.info("Task added to sync queue (offline)")
         setOpen(false)
         return
       }
@@ -62,6 +64,7 @@ export function CreateTaskDialog({ projectId, trigger }: { projectId: string; tr
       if (res?.error) {
         setError(res.error)
       } else {
+        toast.success("Task created successfully")
         setOpen(false)
       }
     } catch (err: any) {

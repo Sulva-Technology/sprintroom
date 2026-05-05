@@ -17,6 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createProject } from '@/app/actions/projects'
 import { z } from 'zod'
+import { toast } from "sonner"
+import { useRouter } from 'next/navigation'
 
 const projectSchema = z.object({
   name: z.string().min(2, 'Project name is required').max(80),
@@ -24,6 +26,7 @@ const projectSchema = z.object({
 })
 
 export function CreateProjectDialog({ trigger, defaultOpen = false }: { trigger?: React.ReactElement; defaultOpen?: boolean }) {
+  const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{ name?: string; description?: string; root?: { message: string; details?: any; } }>({})
@@ -44,7 +47,9 @@ export function CreateProjectDialog({ trigger, defaultOpen = false }: { trigger?
       if (res?.error) {
         setErrors({ root: res.error })
       } else {
+        toast.success("Project created successfully")
         setOpen(false)
+        router.refresh()
       }
     } catch (error: any) {
       if (error instanceof z.ZodError) {

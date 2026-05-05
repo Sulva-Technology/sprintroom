@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { z } from 'zod'
 
 const createWorkspaceSchema = z.object({
@@ -9,15 +10,20 @@ const createWorkspaceSchema = z.object({
   initial: z.string().min(1).max(10)
 })
 
+export async function getActiveWorkspaceId() {
+  const cookieStore = await cookies()
+  return cookieStore.get('active_workspace_id')?.value
+}
+
 export async function createWorkspace(name: string, initial: string) {
   const validated = createWorkspaceSchema.safeParse({ name, initial })
   if (!validated.success) {
-    return { success: false, error: 'Invalid input' }
+    return { success: false, error: { message: 'Invalid input', details: validated.error.format() } }
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { success: false, error: { message: 'Not authenticated' } }
 
   // 1. Create Workspace
   // The trigger 'on_workspace_created' will automatically add the user to workspace_members
@@ -33,11 +39,11 @@ export async function createWorkspace(name: string, initial: string) {
 
   if (workspaceError) {
     console.error("Error creating workspace:", workspaceError)
-    return { success: false, error: workspaceError.message }
+    return { success: false, error: { message: 'Database error', details: workspaceError.message } }
   }
 
   if (!workspaceData) {
-    return { success: false, error: "Failed to retrieve new workspace data." }
+    return { success: false, error: { message: "Failed to retrieve new workspace data." } }
   }
 
   // 2. Create default project
