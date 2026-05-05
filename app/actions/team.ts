@@ -46,13 +46,17 @@ export async function inviteMember(workspaceId: string, email: string) {
     return { success: false, error: error.message }
   }
 
-  // Record activity
-  await supabase.from('task_activity').insert({
-    workspace_id: workspaceId,
-    user_id: user.id,
-    type: 'member_invited',
-    body: `Invited ${email} to the workspace`
-  })
+  // Record activity (wrap in try/catch so invite still succeeds even if log fails)
+  try {
+    await supabase.from('task_activity').insert({
+      workspace_id: workspaceId,
+      user_id: user.id,
+      type: 'member_invited',
+      body: `Invited ${email}`
+    })
+  } catch (logError) {
+    console.warn("Failed to log activity, but invite was created:", logError)
+  }
 
   revalidatePath('/dashboard/team')
   return { success: true }
