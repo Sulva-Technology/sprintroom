@@ -2,8 +2,19 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+
+const createWorkspaceSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  initial: z.string().min(1).max(10)
+})
 
 export async function createWorkspace(name: string, initial: string) {
+  const validated = createWorkspaceSchema.safeParse({ name, initial })
+  if (!validated.success) {
+    return { success: false, error: 'Invalid input' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -13,8 +24,8 @@ export async function createWorkspace(name: string, initial: string) {
   const { data: workspaceData, error: workspaceError } = await supabase
     .from('workspaces')
     .insert({
-      name,
-      initial,
+      name: validated.data.name,
+      initial: validated.data.initial,
       created_by: user.id
     })
     .select()

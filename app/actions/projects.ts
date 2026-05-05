@@ -2,13 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
-// ... existing actions ...
+const createProjectSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional()
+})
 
-export async function createProject({ name, description }: { name: string, description?: string }) {
+export async function createProject(data: any) {
+  const validated = createProjectSchema.safeParse(data)
+  if (!validated.success) {
+    return { success: false, error: { message: 'Invalid input', details: validated.error.format() } }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: { message: 'Not authenticated', details: 'You must be logged in to create a project.' } }
+  if (!user) return { success: false, error: { message: 'Not authenticated', details: 'You must be logged in to create a project.' } }
 
   // 1. Get the user's first workspace (defaulting to the first one they belong to)
   const { data: membership, error: membershipError } = await supabase
@@ -19,16 +28,16 @@ export async function createProject({ name, description }: { name: string, descr
     .single()
 
   if (membershipError || !membership) {
-    return { error: { message: 'No workspace found', details: 'You must be part of a workspace to create a project.' } }
+    return { success: false, error: { message: 'No workspace found', details: 'You must be part of a workspace to create a project.' } }
   }
 
   // 2. Create the project
-  const { data, error } = await supabase
+  const { data: project, error } = await supabase
     .from('projects')
     .insert({
       workspace_id: membership.workspace_id,
-      name,
-      description,
+      name: validated.data.name,
+      description: validated.data.description,
       created_by: user.id
     })
     .select()
@@ -36,11 +45,11 @@ export async function createProject({ name, description }: { name: string, descr
 
   if (error) {
     console.error('Error creating project:', error)
-    return { error: { message: 'Failed to create project', details: error.message } }
+    return { success: false, error: { message: 'Failed to create project', details: error.message } }
   }
 
   revalidatePath('/dashboard/projects')
-  return { success: true, project: data }
+  return { success: true, project }
 }
 
 export async function getRecentProjects() {

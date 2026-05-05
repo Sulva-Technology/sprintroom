@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import Link from 'next/link'
 import { BoardClient } from './board-client'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ projectId: string }> }) {
   const supabase = await createClient()
@@ -123,7 +124,9 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
 
       {/* Board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 snap-x">
-         <BoardClient project={project} initialTasks={tasks} />
+         <ErrorBoundary>
+            <BoardClient project={project} initialTasks={tasks} />
+         </ErrorBoundary>
       </div>
     </div>
   )

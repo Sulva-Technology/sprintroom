@@ -2,8 +2,19 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+
+const inviteMemberSchema = z.object({
+  workspaceId: z.string().uuid(),
+  email: z.string().email()
+})
 
 export async function inviteMember(workspaceId: string, email: string) {
+  const validated = inviteMemberSchema.safeParse({ workspaceId, email })
+  if (!validated.success) {
+    return { success: false, error: 'Invalid input' }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Not authenticated' }
@@ -12,14 +23,14 @@ export async function inviteMember(workspaceId: string, email: string) {
   const { data: existingMember } = await supabase
     .from('profiles')
     .select('id')
-    .eq('email', email)
+    .eq('email', validated.data.email)
     .single()
 
   if (existingMember) {
      const { data: membership } = await supabase
        .from('workspace_members')
        .select('id')
-       .eq('workspace_id', workspaceId)
+       .eq('workspace_id', validated.data.workspaceId)
        .eq('user_id', existingMember.id)
        .single()
 
@@ -32,8 +43,8 @@ export async function inviteMember(workspaceId: string, email: string) {
   const { error } = await supabase
     .from('workspace_invites')
     .insert({
-      workspace_id: workspaceId,
-      email: email.toLowerCase(),
+      workspace_id: validated.data.workspaceId,
+      email: validated.data.email.toLowerCase(),
       inviter_id: user.id,
       status: 'pending'
     })
@@ -49,10 +60,10 @@ export async function inviteMember(workspaceId: string, email: string) {
   // Record activity (wrap in try/catch so invite still succeeds even if log fails)
   try {
     await supabase.from('task_activity').insert({
-      workspace_id: workspaceId,
+      workspace_id: validated.data.workspaceId,
       user_id: user.id,
       type: 'member_invited',
-      body: `Invited ${email}`
+      body: `Invited ${validated.data.email}`
     })
   } catch (logError) {
     console.warn("Failed to log activity, but invite was created:", logError)
