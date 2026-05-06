@@ -26,8 +26,10 @@ export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
-  
+
   const supabase = await createClient()
+  const requestHeaders = await headers()
+  const origin = requestHeaders.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -35,7 +37,8 @@ export async function signup(formData: FormData) {
     options: {
       data: {
         full_name: fullName,
-      }
+      },
+      emailRedirectTo: `${origin}/auth/callback`,
     }
   })
 
@@ -74,7 +77,7 @@ export async function resetPassword(formData: FormData) {
   }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/update-password`,
+    redirectTo: `${origin}/auth/callback?next=/update-password`,
   })
 
   if (error) {
