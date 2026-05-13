@@ -13,6 +13,7 @@ import { noIndexMetadata } from "@/lib/seo";
 export const metadata = noIndexMetadata;
 
 import { OfflineProvider } from '@/components/offline/offline-provider'
+import { AlarmManager } from '@/components/dashboard/alarm-manager'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
@@ -36,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <OfflineProvider>
       <div className="flex h-screen overflow-hidden bg-[#F7F8FA] font-sans selection:bg-primary/20">
+        <AlarmManager />
         <Sidebar user={user} profile={profile} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} recentProjects={recentProjects} />
 
         <div className="flex flex-col flex-1 w-full min-w-0 relative">

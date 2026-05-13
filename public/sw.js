@@ -126,3 +126,55 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// --- Push Notification & Alarm Handling ---
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || 'You have an upcoming task execution.',
+      icon: '/logo.png',
+      badge: '/favicon.png',
+      data: data,
+      vibrate: [200, 100, 200],
+      tag: data.tag || 'sprintroom-task',
+      renotify: true,
+      actions: [
+        { action: 'focus', title: '🚀 Start Focus' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'SprintRoom Execution', options)
+    );
+  } catch (err) {
+    console.error('Error handling push event:', err);
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  // If "Start Focus" was clicked, open the task or dashboard
+  if (event.action === 'focus') {
+    const taskId = event.notification.data?.taskId;
+    const urlToOpen = taskId ? `/dashboard?focus=${taskId}` : '/dashboard';
+    
+    event.waitUntil(
+      clients.matchAll({ type: 'window' }).then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(urlToOpen) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+    );
+  }
+});
