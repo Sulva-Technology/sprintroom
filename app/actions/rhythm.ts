@@ -133,3 +133,20 @@ export async function getWeeklyRhythmLogs(startDate: string, endDate: string) {
 
   return data
 }
+
+export async function deleteRhythmTemplate(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('weekly_rhythm_templates')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/dashboard/rhythms')
+  return { success: true }
+}

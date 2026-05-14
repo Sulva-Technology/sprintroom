@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Repeat2, Loader2, Trash2, GripVertical, X } from 'lucide-react'
+import { Plus, Repeat2, Loader2, Trash2, GripVertical, X, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { saveRhythmTemplate } from '@/app/actions/rhythm'
+import { saveRhythmTemplate, deleteRhythmTemplate } from '@/app/actions/rhythm'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -28,16 +28,40 @@ interface RhythmTaskDraft {
   days: number[] // Now an array
 }
 
-export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
+export function RhythmSettingsDialog({ 
+  showLabel, 
+  initialData, 
+  trigger 
+}: { 
+  showLabel?: boolean, 
+  initialData?: any,
+  trigger?: React.ReactNode
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [tasks, setTasks] = useState<RhythmTaskDraft[]>([
-    { id: crypto.randomUUID(), title: '', days: [1] },
-  ])
+  const [name, setName] = useState(initialData?.name || '')
+  const [description, setDescription] = useState(initialData?.description || '')
+  
+  // Initialize tasks from initialData if editing
+  // We need to group tasks by title to match our multi-day UI logic
+  const [tasks, setTasks] = useState<RhythmTaskDraft[]>(() => {
+    if (initialData?.weekly_rhythm_tasks) {
+      const grouped = new Map<string, number[]>()
+      initialData.weekly_rhythm_tasks.forEach((t: any) => {
+        const existing = grouped.get(t.title) || []
+        grouped.set(t.title, [...existing, t.day_of_week])
+      })
+      
+      return Array.from(grouped.entries()).map(([title, days]) => ({
+        id: crypto.randomUUID(),
+        title,
+        days
+      }))
+    }
+    return [{ id: crypto.randomUUID(), title: '', days: [1] }]
+  })
 
   function addTask() {
     setTasks(prev => [...prev, { id: crypto.randomUUID(), title: '', days: [1] }])
@@ -97,20 +121,39 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
       }
 
       const result = await saveRhythmTemplate({
+        id: initialData?.id, // Important: pass the ID for updates
         name: name.trim(),
         description: description.trim() || undefined,
         tasks: flattenedTasks
       })
 
       if (result.success) {
-        toast.success(`"${name}" rhythm created!`)
+        toast.success(initialData ? 'Rhythm updated!' : `"${name}" rhythm created!`)
         setOpen(false)
-        setName('')
-        setDescription('')
-        setTasks([{ id: crypto.randomUUID(), title: '', day_of_week: 1 }])
+        if (!initialData) {
+          setName('')
+          setDescription('')
+          setTasks([{ id: crypto.randomUUID(), title: '', days: [1] }])
+        }
         router.refresh()
       } else {
-        toast.error(result.error || 'Failed to create rhythm.')
+        toast.error(result.error || 'Failed to save rhythm.')
+      }
+    })
+  }
+
+  function handleDelete() {
+    if (!initialData?.id) return
+    if (!confirm('Are you sure you want to delete this rhythm and all its history?')) return
+
+    startTransition(async () => {
+      const result = await deleteRhythmTemplate(initialData.id)
+      if (result.success) {
+        toast.success('Rhythm deleted.')
+        setOpen(false)
+        router.refresh()
+      } else {
+        toast.error(result.error || 'Failed to delete.')
       }
     })
   }
@@ -119,13 +162,15 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button
-            size="sm"
-            className={cn('rounded-full h-9 shadow-sm', showLabel ? 'px-4' : 'px-3')}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {showLabel ? 'New Rhythm' : 'New Rhythm'}
-          </Button>
+          trigger || (
+            <Button
+              size="sm"
+              className={cn('rounded-full h-9 shadow-sm', showLabel ? 'px-4' : 'px-3')}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {showLabel ? 'New Rhythm' : 'New Rhythm'}
+            </Button>
+          )
         }
       />
 
@@ -133,11 +178,24 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
         {/* Header */}
         <div className="p-6 pb-4 border-b border-border/40 shrink-0">
           <DialogHeader>
-            <DialogTitle className="text-xl flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Repeat2 className="w-4 h-4 text-primary" />
+            <DialogTitle className="text-xl flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Repeat2 className="w-4 h-4 text-primary" />
+                </div>
+                {initialData ? 'Edit Rhythm' : 'New Weekly Rhythm'}
               </div>
-              New Weekly Rhythm
+              {initialData && (
+                <Button 
+                  variant="ghost" 
+                  size="icon-sm" 
+                  onClick={handleDelete}
+                  disabled={isPending}
+                  className="text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </DialogTitle>
             <DialogDescription className="mt-1">
               A rhythm is a group of tasks that repeat on a schedule each week.
@@ -267,7 +325,7 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
             {isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
             ) : (
-              'Create Rhythm'
+              initialData ? 'Update Rhythm' : 'Create Rhythm'
             )}
           </Button>
         </DialogFooter>

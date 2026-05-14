@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { format, addDays, parseISO, isToday } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toggleRhythmCompletion } from '@/app/actions/rhythm'
-import { CheckCircle2, Circle, Sparkles } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { RhythmSettingsDialog } from './rhythm-settings-dialog'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -120,12 +121,23 @@ export function WeeklyPlannerGrid({ rhythms, logs, weekStart }: WeeklyPlannerGri
       {/* Rhythm Groups */}
       {rhythms.map((rhythm) => (
         <div key={rhythm.id} className="border-b border-border/30 last:border-b-0">
+
           {/* Group Label */}
           <div
-            className="px-4 py-2 bg-slate-50/80 border-b border-border/20 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2"
+            className="px-4 py-2 bg-slate-50/80 border-b border-border/20 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
-            {rhythm.name}
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+              {rhythm.name}
+            </div>
+            <RhythmSettingsDialog 
+              initialData={rhythm} 
+              trigger={
+                <button className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400 hover:text-slate-600">
+                  <Settings2 className="w-3.5 h-3.5" />
+                </button>
+              }
+            />
           </div>
 
           {/* Tasks in this rhythm */}
