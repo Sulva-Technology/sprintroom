@@ -25,7 +25,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 interface RhythmTaskDraft {
   id: string
   title: string
-  day_of_week: number
+  days: number[] // Now an array
 }
 
 export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
@@ -36,19 +36,39 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [tasks, setTasks] = useState<RhythmTaskDraft[]>([
-    { id: crypto.randomUUID(), title: '', day_of_week: 1 },
+    { id: crypto.randomUUID(), title: '', days: [1] },
   ])
 
   function addTask() {
-    setTasks(prev => [...prev, { id: crypto.randomUUID(), title: '', day_of_week: 1 }])
+    setTasks(prev => [...prev, { id: crypto.randomUUID(), title: '', days: [1] }])
   }
 
   function removeTask(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
 
-  function updateTask(id: string, field: 'title' | 'day_of_week', value: string | number) {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
+  function updateTask(id: string, field: 'title' | 'days', value: any) {
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t
+      if (field === 'title') return { ...t, title: value }
+      
+      // For days, toggle if already exists
+      const currentDays = t.days
+      const day = value as number
+      const newDays = currentDays.includes(day)
+        ? currentDays.filter(d => d !== day)
+        : [...currentDays, day]
+      
+      return { ...t, days: newDays.sort() }
+    }))
+  }
+
+  function setAllDays(id: string, mode: 'all' | 'weekdays' | 'none') {
+    let newDays: number[] = []
+    if (mode === 'all') newDays = [0, 1, 2, 3, 4, 5, 6]
+    else if (mode === 'weekdays') newDays = [1, 2, 3, 4, 5]
+    
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, days: newDays } : t))
   }
 
   function handleSubmit() {
@@ -63,10 +83,23 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
     }
 
     startTransition(async () => {
+      // Flatten multi-day tasks into individual task records for the grid
+      const flattenedTasks: { title: string, day_of_week: number }[] = []
+      validTasks.forEach(vt => {
+        vt.days.forEach(day => {
+          flattenedTasks.push({ title: vt.title.trim(), day_of_week: day })
+        })
+      })
+
+      if (flattenedTasks.length === 0) {
+        toast.error('Please select at least one day for your tasks.')
+        return
+      }
+
       const result = await saveRhythmTemplate({
         name: name.trim(),
         description: description.trim() || undefined,
-        tasks: validTasks.map(t => ({ title: t.title.trim(), day_of_week: t.day_of_week }))
+        tasks: flattenedTasks
       })
 
       if (result.success) {
@@ -96,9 +129,9 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
         }
       />
 
-      <DialogContent className="sm:max-w-[540px] rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[540px] rounded-3xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border/40">
+        <div className="p-6 pb-4 border-b border-border/40 shrink-0">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -112,7 +145,7 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
           </DialogHeader>
         </div>
 
-        <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Name */}
           <div className="space-y-1.5">
             <Label className="font-semibold text-foreground/80">Rhythm Name</Label>
@@ -152,29 +185,48 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
                     placeholder={`Task ${index + 1} title...`}
                     className="h-9 rounded-lg border-border/50 text-sm flex-1 bg-white"
                   />
-                  {/* Day picker */}
-                  <div className="flex gap-0.5 shrink-0">
-                    {DAY_LABELS.map((day, dayIdx) => (
-                      <button
-                        key={dayIdx}
-                        type="button"
-                        onClick={() => updateTask(task.id, 'day_of_week', dayIdx)}
-                        className={cn(
-                          'w-7 h-7 rounded-lg text-[10px] font-bold transition-all',
-                          task.day_of_week === dayIdx
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'bg-white border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary'
-                        )}
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    {/* Day picker */}
+                    <div className="flex gap-0.5">
+                      {DAY_LABELS.map((day, dayIdx) => (
+                        <button
+                          key={dayIdx}
+                          type="button"
+                          onClick={() => updateTask(task.id, 'days', dayIdx)}
+                          className={cn(
+                            'w-7 h-7 rounded-lg text-[10px] font-bold transition-all',
+                            task.days.includes(dayIdx)
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'bg-white border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary'
+                          )}
+                        >
+                          {day[0]}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Shortcuts */}
+                    <div className="flex justify-between px-1">
+                      <button 
+                        type="button" 
+                        onClick={() => setAllDays(task.id, 'all')}
+                        className="text-[9px] font-bold text-primary/60 hover:text-primary"
                       >
-                        {day[0]}
+                        Everyday
                       </button>
-                    ))}
+                      <button 
+                        type="button" 
+                        onClick={() => setAllDays(task.id, 'weekdays')}
+                        className="text-[9px] font-bold text-muted-foreground hover:text-primary"
+                      >
+                        Weekdays
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeTask(task.id)}
                     disabled={tasks.length === 1}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 shrink-0"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 shrink-0 self-start mt-1"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -196,7 +248,7 @@ export function RhythmSettingsDialog({ showLabel }: { showLabel?: boolean }) {
         </div>
 
         {/* Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-border/30 bg-slate-50/50 gap-2">
+        <DialogFooter className="px-6 py-4 border-t border-border/30 bg-slate-50/50 gap-2 shrink-0">
           <Button
             type="button"
             variant="ghost"

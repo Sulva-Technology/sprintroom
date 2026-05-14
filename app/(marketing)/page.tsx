@@ -75,112 +75,14 @@ export default function MarketingPage() {
 
           {/* Hero Visual Mockup */}
           <div className="mt-20 w-full max-w-5xl items-center flex flex-col align-center">
-            <div className="relative w-full aspect-[16/9] md:aspect-[16/8.5] rounded-[2rem] border border-border/50 bg-white/50 backdrop-blur-2xl shadow-2xl shadow-primary/10 overflow-hidden ring-1 ring-black/5 flex flex-col">
-              {/* Fake Topbar */}
-              <div className="h-14 border-b border-border/50 bg-white/60 flex items-center px-6 justify-between shrink-0">
-                <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                </div>
-                <div className="hidden md:flex bg-muted/50 rounded-full h-8 px-4 items-center text-xs text-muted-foreground border">
-                  <SearchIcon className="w-3 h-3 mr-2" /> Search workspace...
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-8 pr-3 pl-1 flex items-center gap-2 rounded-full border bg-amber-50 text-amber-600 border-amber-200 shadow-sm animate-pulse">
-                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-amber-500"><Timer className="w-3.5 h-3.5" /></div>
-                    <span className="text-xs font-bold font-mono">18:42</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full border border-border bg-gradient-to-tr from-blue-500 to-primary shadow-sm" />
-                </div>
-              </div>
-              {/* Fake Dashboard Content */}
-              <div className="flex p-6 gap-6 h-full bg-[#fcfcfd]/80 overflow-hidden text-left">
-                {/* Left col */}
-                <div className="hidden lg:flex w-52 flex-col gap-2 shrink-0">
-                  <div className="h-4 w-20 bg-muted/80 rounded mb-2"></div>
-                  <div className="h-8 w-full bg-primary/10 rounded-lg flex items-center px-3 border border-primary/20"><span className="text-sm font-medium text-primary">Overview</span></div>
-                  <div className="h-8 w-full bg-transparent rounded-lg flex items-center px-3"><span className="text-sm font-medium text-muted-foreground">My Tasks</span></div>
-                  <div className="h-8 w-full bg-transparent rounded-lg flex items-center px-3"><span className="text-sm font-medium text-muted-foreground">Focus Room</span></div>
-                  <div className="mt-8 h-4 w-24 bg-muted/80 rounded mb-2"></div>
-                  <div className="flex -space-x-2 mt-2">
-                     <div className="w-8 h-8 rounded-full border-2 border-white bg-blue-400 z-30"></div>
-                     <div className="w-8 h-8 rounded-full border-2 border-white bg-green-400 z-20"></div>
-                     <div className="w-8 h-8 rounded-full border-2 border-white bg-purple-400 z-10"></div>
-                  </div>
-                </div>
-                {/* Main Content */}
-                <div className="flex-1 flex flex-col gap-6">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <h3 className="text-2xl font-bold tracking-tight">Today&apos;s Execution</h3>
-                      <p className="text-sm text-muted-foreground mt-1">Acme Corp Workspace</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <Card className="glass-card shadow-sm border-border/50 p-4 shrink-0">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">completed</span>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      </div>
-                      <div className="h-8 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-foreground">12</span>
-                        <span className="text-xs text-muted-foreground">focus sessions</span>
-                      </div>
-                    </Card>
-                    <Card className="glass-card shadow-sm border-border/50 p-4 shrink-0">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">active now</span>
-                        <Zap className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div className="h-8 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-foreground">3</span>
-                        <span className="text-xs text-muted-foreground">teammates</span>
-                      </div>
-                    </Card>
-                    <Card className="glass-card shadow-sm border-border/50 p-4 shrink-0 bg-red-50/30">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded border border-red-200">blockers</span>
-                        <ShieldAlert className="w-4 h-4 text-red-500" />
-                      </div>
-                      <div className="h-8 flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-red-600">1</span>
-                        <span className="text-xs text-red-400 font-medium">needs attention</span>
-                      </div>
-                    </Card>
-                  </div>
-
-                  <div className="flex-1 bg-white rounded-xl border border-border/50 shadow-sm p-4 overflow-hidden relative">
-                    <h4 className="text-sm font-semibold mb-4 text-foreground flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" /> Active Tasks
-                    </h4>
-                    <div className="space-y-3 relative z-10">
-                       <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
-                          <div className="flex items-center gap-3">
-                             <div className="w-6 h-6 rounded border flex items-center justify-center bg-white"><div className="w-3 h-3 bg-blue-500 rounded-full" /></div>
-                             <span className="text-sm font-medium">Design System Refactor</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">doing</span>
-                            <div className="w-5 h-5 rounded-full bg-blue-400 border border-white" />
-                          </div>
-                       </div>
-                       <div className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50/50">
-                          <div className="flex items-center gap-3">
-                             <div className="w-6 h-6 rounded border flex items-center justify-center bg-white border-red-200"><div className="w-3 h-3 bg-red-500 rounded-full" /></div>
-                             <span className="text-sm font-medium text-red-900">Stripe Webhook Bug</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] uppercase font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded border border-red-200">blocked</span>
-                            <div className="w-5 h-5 rounded-full bg-gray-400 border border-white" />
-                          </div>
-                       </div>
-                    </div>
-                    {/* Gradient fade out at bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent z-20"></div>
-                  </div>
-                </div>
-              </div>
+            <div className="relative w-full aspect-[16/9] md:aspect-[16/8.5] rounded-[2rem] border border-border/50 bg-white shadow-2xl shadow-primary/10 overflow-hidden ring-1 ring-black/5">
+              <img 
+                src="/home.jpeg" 
+                alt="SprintRoom Dashboard" 
+                className="w-full h-full object-cover"
+              />
+              {/* Overlay to keep it looking like an app */}
+              <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-[2rem]"></div>
             </div>
           </div>
         </div>
@@ -333,7 +235,7 @@ export default function MarketingPage() {
              ].map((f, i) => (
                <div key={i} className="flex gap-4">
                  <div className="shrink-0 w-10 h-10 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary">
-                    <f.icon className="w-5 h-5" />
+                    <f.icon className="w-5 l-5" />
                  </div>
                  <div>
                    <h3 className="font-semibold text-foreground mb-1">{f.title}</h3>
