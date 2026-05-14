@@ -53,7 +53,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </div>
 
         <MobileNav />
-        <FocusTubeProvider initialSession={activeFocus} />
+        <FocusTubeProvider initialSession={activeFocus} userId={user.id} />
       </div>
     </OfflineProvider>
   )

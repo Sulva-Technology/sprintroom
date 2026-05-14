@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ArrowRight, CheckCircle2, Clock, ShieldAlert, Target, Zap, LayoutDashboard, Timer, Users, User, Info, ArrowUpRight, Activity } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { buildPageMetadata, siteConfig, getSiteUrl } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/json-ld";
 
@@ -76,10 +77,13 @@ export default function MarketingPage() {
           {/* Hero Visual Mockup */}
           <div className="mt-20 w-full max-w-5xl items-center flex flex-col align-center">
             <div className="relative w-full aspect-[16/9] md:aspect-[16/8.5] rounded-[2rem] border border-border/50 bg-white shadow-2xl shadow-primary/10 overflow-hidden ring-1 ring-black/5">
-              <img 
-                src="/home.jpeg" 
-                alt="SprintRoom Dashboard" 
-                className="w-full h-full object-cover"
+              <Image
+                src="/home.jpeg"
+                alt="SprintRoom Dashboard"
+                fill
+                priority
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 1280px"
               />
               {/* Overlay to keep it looking like an app */}
               <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-[2rem]"></div>

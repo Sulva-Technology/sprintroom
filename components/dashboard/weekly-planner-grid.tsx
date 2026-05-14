@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { RhythmSettingsDialog } from './rhythm-settings-dialog'
+import { groupWeeklyRhythmTasks } from '@/lib/weekly-rhythm'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -141,7 +142,7 @@ export function WeeklyPlannerGrid({ rhythms, logs, weekStart }: WeeklyPlannerGri
           </div>
 
           {/* Tasks in this rhythm */}
-          {(rhythm.weekly_rhythm_tasks || []).map((task) => {
+          {groupWeeklyRhythmTasks(rhythm.weekly_rhythm_tasks || []).map((task) => {
             // Only render the task on the days it's scheduled (day_of_week)
             // day_of_week: 0=Sun,1=Mon...6=Sat. Our grid is Mon(1)..Sun(0)
             // weekDates[0]=Mon, weekDates[6]=Sun
@@ -161,8 +162,9 @@ export function WeeklyPlannerGrid({ rhythms, logs, weekStart }: WeeklyPlannerGri
 
                 {/* Day cells */}
                 {weekDates.map((date, i) => {
-                  const isScheduled = gridDayOfWeek[i] === task.day_of_week
-                  const done = isCompleted(task.id, date)
+                  const scheduledTaskId = task.taskIdsByDay[gridDayOfWeek[i]]
+                  const isScheduled = Boolean(scheduledTaskId)
+                  const done = scheduledTaskId ? isCompleted(scheduledTaskId, date) : false
                   const dayIsToday = isToday(parseISO(date))
 
                   if (!isScheduled) {
@@ -189,7 +191,11 @@ export function WeeklyPlannerGrid({ rhythms, logs, weekStart }: WeeklyPlannerGri
                     >
                       <GridCell
                         done={done}
-                        onToggle={(note) => handleToggle(task.id, date, note)}
+                        onToggle={(note) => {
+                          if (scheduledTaskId) {
+                            handleToggle(scheduledTaskId, date, note)
+                          }
+                        }}
                         isPending={isPending}
                       />
                     </div>

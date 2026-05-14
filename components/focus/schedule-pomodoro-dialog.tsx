@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { scheduleFocusSession } from '@/app/actions/scheduling'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
+import { getDefaultPomodoroScheduleValues } from '@/lib/focus-schedule-defaults'
 
 export function SchedulePomodoroDialog({
   open,
@@ -29,8 +30,8 @@ export function SchedulePomodoroDialog({
   taskId?: string;
   projectId?: string;
 }) {
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [time, setTime] = useState(format(new Date(Date.now() + 30 * 60 * 1000), 'HH:mm'))
+  const [date, setDate] = useState(() => getDefaultPomodoroScheduleValues().date)
+  const [time, setTime] = useState(() => getDefaultPomodoroScheduleValues().time)
   const [duration, setDuration] = useState(25)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<{ message: string; details?: any } | null>(null)
@@ -76,7 +77,7 @@ export function SchedulePomodoroDialog({
         <DialogHeader className="mb-4">
           <DialogTitle className="text-xl">Schedule Focus Session</DialogTitle>
           <DialogDescription>
-            Set a time for your next Pomodoro. We'll notify you before it starts.
+            Set a time for your next Pomodoro. We&apos;ll notify you before it starts.
           </DialogDescription>
         </DialogHeader>
 

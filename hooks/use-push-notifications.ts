@@ -11,9 +11,7 @@ export function usePushNotifications() {
   useEffect(() => {
     const checkSupport = () => {
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsSupported(true);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPermission(Notification.permission);
 
         // Check current subscription status

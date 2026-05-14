@@ -1,37 +1,49 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getWorkspaceRealtimeSubscriptions } from '@/lib/realtime-subscriptions'
 
 export function useRealtimeSync(workspaceId?: string) {
   const router = useRouter()
-  const supabase = createClient()
+  const pathname = usePathname()
+  const [supabase] = useState(() => createClient())
 
   useEffect(() => {
-    if (!workspaceId) return
+    const workspaceSubscriptions = getWorkspaceRealtimeSubscriptions(workspaceId)
+    const shouldWatchRhythmLogs = pathname.startsWith('/dashboard/rhythms')
 
-    // Create a channel for this workspace
-    const channel = supabase
-      .channel(`workspace_pulse_${workspaceId}`)
-      .on(
+    if (workspaceSubscriptions.length === 0 && !shouldWatchRhythmLogs) {
+      return
+    }
+
+    let channel = supabase.channel(`workspace_pulse_${workspaceId ?? 'global'}`)
+
+    for (const subscription of workspaceSubscriptions) {
+      channel = channel.on('postgres_changes', subscription, () => {
+        router.refresh()
+      })
+    }
+
+    if (shouldWatchRhythmLogs) {
+      channel = channel.on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
+          table: 'weekly_rhythm_logs',
         },
-        (payload) => {
-          // If the change belongs to our workspace (or is a task related to it)
-          // We trigger a server-side refresh. 
-          // Next.js will re-fetch the data for the current page.
-          console.log('Real-time update received:', payload)
+        () => {
           router.refresh()
         }
       )
-      .subscribe()
+    }
+
+    channel.subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [workspaceId, supabase, router])
+  }, [pathname, router, supabase, workspaceId])
 }

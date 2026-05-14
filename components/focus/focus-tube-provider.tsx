@@ -4,38 +4,39 @@ import { useState, useEffect } from 'react'
 import { FocusTube } from './focus-tube'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getUserFocusSessionSubscription } from '@/lib/realtime-subscriptions'
 
 interface FocusTubeProviderProps {
   initialSession: any
+  userId: string
 }
 
-export function FocusTubeProvider({ initialSession }: FocusTubeProviderProps) {
+export function FocusTubeProvider({ initialSession, userId }: FocusTubeProviderProps) {
   const [activeSession, setActiveSession] = useState(
     initialSession?.status === 'active' ? initialSession : null
   )
   const router = useRouter()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
 
   useEffect(() => {
-    // Listen for new focus sessions being inserted (e.g., from the background cron job)
+    const subscription = getUserFocusSessionSubscription(userId)
+
     const channel = supabase
       .channel('focus_sessions_changes')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'focus_sessions'
-        },
+        subscription,
         async (payload) => {
+          const nextSession = payload.new as { id?: string; status?: string } | null
+
           // Verify it's an active session
-          if (payload.new && payload.new.status === 'active') {
+          if (nextSession?.status === 'active' && nextSession.id) {
              // We need to fetch the full details including relations if needed by FocusTube
              const { data: fullSession } = await supabase
-               .from('focus_sessions')
-               .select('*, tasks(*, projects(*))')
-               .eq('id', payload.new.id)
-               .single()
+                .from('focus_sessions')
+                .select('*, tasks(*, projects(*))')
+                .eq('id', nextSession.id)
+                .single()
                
              if (fullSession) {
                setActiveSession({
@@ -56,7 +57,7 @@ export function FocusTubeProvider({ initialSession }: FocusTubeProviderProps) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [supabase, router])
+  }, [router, supabase, userId])
 
   if (!activeSession) return null
 

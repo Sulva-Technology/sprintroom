@@ -14,17 +14,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { scheduleFocusSession } from '@/app/actions/scheduling'
+import { getDefaultFocusSessionStartTime } from '@/lib/focus-schedule-defaults'
 
 export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId?: string, projectId?: string, workspaceId?: string }) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<{ message: string; details?: any } | null>(null)
 
-  // Default to +5 minutes from now
-  const defaultTime = new Date(Date.now() + 5 * 60000)
-  const defaultDateStr = new Date(defaultTime.getTime() - defaultTime.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
-
-  const [startTime, setStartTime] = useState(defaultDateStr)
+  const [startTime, setStartTime] = useState(() => getDefaultFocusSessionStartTime())
   const [duration, setDuration] = useState('25')
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,7 +64,7 @@ export function ScheduleFocusDialog({ taskId, projectId, workspaceId }: { taskId
         <DialogHeader>
           <DialogTitle>Schedule Focus Session</DialogTitle>
           <DialogDescription>
-            Plan a Pomodoro session in advance. We'll remind you when it's time to start.
+            Plan a Pomodoro session in advance. We&apos;ll remind you when it&apos;s time to start.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

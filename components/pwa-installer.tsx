@@ -8,15 +8,15 @@ import { Card } from '@/components/ui/card'
 export function PWAInstaller() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showPrompt, setShowPrompt] = useState(false)
-  const [isInstalled, setIsInstalled] = useState(false)
-
-  useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true)
-      return
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
     }
 
+    return window.matchMedia('(display-mode: standalone)').matches
+  })
+
+  useEffect(() => {
     // Listen for install prompt event
     const handler = (e: Event) => {
       e.preventDefault()
@@ -29,10 +29,18 @@ export function PWAInstaller() {
       }
     }
 
+    const handleInstalled = () => {
+      setIsInstalled(true)
+      setShowPrompt(false)
+      setDeferredPrompt(null)
+    }
+
     window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', handleInstalled)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', handleInstalled)
     }
   }, [])
 
