@@ -46,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <Topbar user={user} profile={profile} activeFocus={activeFocus} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
 
           <main className="flex-1 overflow-auto p-4 md:p-8 md:pt-4 outline-none pb-24 md:pb-8" tabIndex={-1}>
-            <div className="max-w-6xl mx-auto h-full">
+            <div className="max-w-6xl mx-auto">
               {children}
             </div>
           </main>

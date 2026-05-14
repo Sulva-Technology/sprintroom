@@ -215,7 +215,7 @@ export default async function TeamPulsePage() {
   })).filter(log => log.user) // only keep logs for users in our workspace
 
   return (
-    <div className="h-full flex flex-col pb-12 w-full mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col pb-12 w-full mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <TeamPulseHeader workspaceId={primaryWorkspaceId} canInvite={canInvite} />
 
       <TeamHealthCard stats={teamStats} insight={insightMsg} />
