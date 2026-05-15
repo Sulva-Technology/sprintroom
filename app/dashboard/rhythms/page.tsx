@@ -3,8 +3,9 @@ import { getRhythms, getWeeklyRhythmLogs } from '@/app/actions/rhythm'
 import { WeeklyPlannerGrid } from '@/components/dashboard/weekly-planner-grid'
 import { RhythmSettingsDialog } from '@/components/dashboard/rhythm-settings-dialog'
 import { AiSuggestionsPanel } from '@/components/dashboard/ai-suggestions-panel'
-import { Plus, Repeat2, Sparkles } from 'lucide-react'
+import { CheckCircle2, ListChecks, Repeat2, Sun } from 'lucide-react'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
+import { calculateWeeklyRhythmSummary } from '@/lib/weekly-rhythm'
 
 export default async function RhythmsPage() {
   const supabase = await createClient()
@@ -22,6 +23,11 @@ export default async function RhythmsPage() {
     getRhythms(),
     getWeeklyRhythmLogs(weekStartStr, weekEndStr)
   ])
+  const summary = calculateWeeklyRhythmSummary({
+    rhythms,
+    logs,
+    today: format(today, 'yyyy-MM-dd'),
+  })
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -44,10 +50,54 @@ export default async function RhythmsPage() {
         </div>
       </div>
 
+      {rhythms.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-border/50 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Weekly Completion
+            </div>
+            <div className="text-3xl font-bold tracking-tight text-foreground">
+              {summary.completionRate}%
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {summary.totalCompleted} of {summary.totalScheduled} scheduled checks done
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border/50 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <Sun className="h-4 w-4 text-amber-600" />
+              Today
+            </div>
+            <div className="text-3xl font-bold tracking-tight text-foreground">
+              {summary.completedToday}/{summary.dueToday}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {summary.todayCompletionRate}% of today&apos;s rhythm finished
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border/50 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <ListChecks className="h-4 w-4 text-primary" />
+              Remaining This Week
+            </div>
+            <div className="text-3xl font-bold tracking-tight text-foreground">
+              {Math.max(0, summary.totalScheduled - summary.totalCompleted)}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Scheduled rhythm checks still open this week
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
       <WeeklyPlannerGrid
         rhythms={rhythms}
         logs={logs}
+        progressByRhythmId={summary.byRhythmId}
         weekStart={weekStartStr}
       />
 

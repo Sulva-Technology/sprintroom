@@ -46,15 +46,6 @@ export async function signup(formData: FormData) {
     return { error: error.message }
   }
 
-  // Create profile
-  if (data.user) {
-    await supabase.from('profiles').insert({
-      id: data.user.id,
-      email: data.user.email,
-      full_name: fullName,
-    })
-  }
-
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }

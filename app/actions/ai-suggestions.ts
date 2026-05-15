@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { GoogleGenAI } from '@google/genai'
 
 // We assume the API key is in environment variables
-const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '' })
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
 
 export async function getTaskSuggestions() {
   try {
@@ -15,10 +15,10 @@ export async function getTaskSuggestions() {
       return { success: false, error: 'Not authenticated' }
     }
 
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return { 
         success: false, 
-        error: 'Google Gemini API key not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment.' 
+        error: 'Google Gemini API key not configured. Please add GEMINI_API_KEY to your environment.' 
       }
     }
 
