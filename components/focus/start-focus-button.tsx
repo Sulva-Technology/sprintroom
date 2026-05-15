@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Timer, Loader2 } from 'lucide-react'
 import { startFocusSession } from '@/app/actions/focus'
+import { useFocusSound } from '@/hooks/use-focus-sound'
 
 export function StartFocusButton({ 
   taskId, 
@@ -19,8 +20,10 @@ export function StartFocusButton({
   size?: "default" | "sm" | "lg" | "icon"
 }) {
   const [isLoading, setIsLoading] = useState(false)
+  const { playSound } = useFocusSound()
 
   const handleStart = async () => {
+    playSound('focus-start')
     setIsLoading(true)
     const res = await startFocusSession(taskId, projectId)
     if (res?.error) {

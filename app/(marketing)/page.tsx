@@ -78,7 +78,7 @@ export default function MarketingPage() {
           <div className="mt-20 w-full max-w-5xl items-center flex flex-col align-center">
             <div className="relative w-full aspect-[16/9] md:aspect-[16/8.5] rounded-[2rem] border border-border/50 bg-white shadow-2xl shadow-primary/10 overflow-hidden ring-1 ring-black/5">
               <Image
-                src="/home.jpeg"
+                src="/home-new.png"
                 alt="SprintRoom Dashboard"
                 fill
                 priority

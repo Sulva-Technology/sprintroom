@@ -78,15 +78,7 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
     return () => clearInterval(tickInterval);
   }, [session, isComplete, playSound, stopSound]);
 
-  // Initial sound on mount if session is fresh
-  useEffect(() => {
-    if (!session) return
-
-    const startAgeMs = Date.now() - new Date(session.started_at).getTime()
-    if (startAgeMs < 10000 && !hasPlayedComplete.current && !isComplete) {
-       playSound('focus-start')
-    }
-  }, [session, isComplete, playSound])
+  // Sound triggers
 
   const handleAddDistraction = async () => {
     setDistractions(prev => prev + 1)
@@ -189,8 +181,14 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
 
       {isPoppedOut && popoutWindow && (
         <FocusPopoutWindow pipWindow={popoutWindow}>
-          <div className="flex-1 flex items-center justify-center p-4">
-            <FocusTubeExpanded {...popoutUiProps} />
+          <div className="flex-1 flex items-center justify-center h-full w-full bg-slate-50/50">
+            <FocusTubePill
+              taskTitle={session.task_title}
+              formattedTime={formattedTime}
+              progressPercent={progressPercent}
+              isComplete={isComplete || session.status === 'completed'}
+              onExpand={() => closePopout()}
+            />
           </div>
         </FocusPopoutWindow>
       )}

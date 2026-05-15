@@ -19,6 +19,10 @@ export function FocusTubeProvider({ initialSession, userId }: FocusTubeProviderP
   const [supabase] = useState(() => createClient())
 
   useEffect(() => {
+    setActiveSession(initialSession?.status === 'active' ? initialSession : null)
+  }, [initialSession])
+
+  useEffect(() => {
     const subscription = getUserFocusSessionSubscription(userId)
 
     const channel = supabase

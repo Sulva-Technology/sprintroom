@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Timer, Loader2 } from 'lucide-react'
 import { createInstantFocusSession } from '@/app/actions/focus'
 import { toast } from 'sonner'
+import { useFocusSound } from '@/hooks/use-focus-sound'
 
 export function StartFocusButton() {
   const [isLoading, setIsLoading] = useState(false)
+  const { playSound } = useFocusSound()
 
   const handleStartInstantFocus = async () => {
+    playSound('focus-start')
     setIsLoading(true)
     try {
       const res = await createInstantFocusSession()

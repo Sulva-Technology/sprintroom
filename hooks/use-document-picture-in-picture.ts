@@ -39,8 +39,8 @@ export function useDocumentPictureInPicture() {
       if (!documentPictureInPicture) return null
 
       const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 360,
-        height: 520,
+        width: 320,
+        height: 80,
       })
 
       pipWindow.document.title = 'SprintRoom Focus Tube'
