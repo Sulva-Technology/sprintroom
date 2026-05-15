@@ -28,6 +28,9 @@ jobs:
       - name: Type Check
         run: npx tsc --noEmit
         
+      - name: Run Tests
+        run: npm run test
+        
   supabase-migration-lint:
     name: Validate Supabase Migrations
     runs-on: ubuntu-latest

@@ -173,7 +173,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_workspace()
 RETURNS trigger AS $$
 BEGIN
   INSERT INTO public.workspace_members (workspace_id, user_id, role)
-  VALUES (NEW.id, auth.uid(), 'owner');
+  VALUES (NEW.id, COALESCE(auth.uid(), NEW.created_by), 'owner');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
