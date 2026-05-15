@@ -71,3 +71,23 @@ export async function getRecentProjects() {
 
   return data || []
 }
+
+export async function getWorkspaceProjects(workspaceId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, name')
+    .eq('workspace_id', workspaceId)
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching workspace projects:', error)
+    return []
+  }
+
+  return data || []
+}
+

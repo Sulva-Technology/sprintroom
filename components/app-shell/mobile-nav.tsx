@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Activity, Timer } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Activity, Timer, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
   { href: '/dashboard/focus', label: 'Focus', icon: Timer },
   { href: '/dashboard/team', label: 'Team', icon: Activity },
+  { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
 ]
 
 export function MobileNav() {

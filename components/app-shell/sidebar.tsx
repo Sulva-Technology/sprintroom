@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Activity, Timer, Settings, Plus, Repeat2 } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Activity, Timer, Settings, Plus, Repeat2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WorkspaceSwitcher } from './workspace-switcher'
 import { UserMenu } from './user-menu'
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard/rhythms', label: 'Weekly Rhythms', icon: Repeat2 },
   { href: '/dashboard/focus', label: 'Focus Sessions', icon: Timer },
   { href: '/dashboard/team', label: 'Team Pulse', icon: Activity },
+  { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
