@@ -221,7 +221,7 @@ export function FinancialDashboard({ entries, metrics, aiInsights }: FinancialDa
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val || 'all')}>
               <SelectTrigger className="w-[110px]">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>

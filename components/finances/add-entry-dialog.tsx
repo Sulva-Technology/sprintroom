@@ -89,12 +89,14 @@ export function AddEntryDialog({ workspaceId, projects }: AddEntryDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Entry
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={(
+          <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Entry
+          </Button>
+        )}
+      />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add Financial Entry</DialogTitle>

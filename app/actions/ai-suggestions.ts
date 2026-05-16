@@ -1,10 +1,10 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 // We assume the API key is in environment variables
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' })
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function getTaskSuggestions() {
   try {
@@ -82,11 +82,10 @@ export async function getTaskSuggestions() {
     `
 
     // 3. Generate Suggestions
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-    })
-    const text = response.text ?? ''
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const result = await model.generateContent(prompt)
+    const response = result.response
+    const text = response.text()
     
     // Clean up potential markdown JSON blocks
     const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim()

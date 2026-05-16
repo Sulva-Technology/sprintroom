@@ -15,12 +15,14 @@ export function FocusTubeProvider({ initialSession, userId }: FocusTubeProviderP
   const [activeSession, setActiveSession] = useState(
     initialSession?.status === 'active' ? initialSession : null
   )
+  const [prevInitialSession, setPrevInitialSession] = useState(initialSession)
   const router = useRouter()
   const [supabase] = useState(() => createClient())
 
-  useEffect(() => {
+  if (initialSession !== prevInitialSession) {
+    setPrevInitialSession(initialSession)
     setActiveSession(initialSession?.status === 'active' ? initialSession : null)
-  }, [initialSession])
+  }
 
   useEffect(() => {
     const subscription = getUserFocusSessionSubscription(userId)
