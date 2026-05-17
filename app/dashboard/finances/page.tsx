@@ -50,8 +50,8 @@ export default async function FinancesPage() {
   ])
 
   return (
-    <div className="flex-1 space-y-8 p-8 pt-6">
-      <div className="flex items-center justify-between">
+    <div className="flex-1 space-y-8 p-4 sm:p-8 pt-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-indigo-100 rounded-xl text-indigo-600">
             <Wallet className="w-6 h-6" />
@@ -72,6 +72,8 @@ export default async function FinancesPage() {
         entries={entries as any} 
         metrics={metrics || { totalIncome: 0, totalExpense: 0, netBalance: 0, byProject: {} }}
         aiInsights={aiInsights}
+        workspaceId={workspaceId}
+        projects={projects}
       />
     </div>
   )

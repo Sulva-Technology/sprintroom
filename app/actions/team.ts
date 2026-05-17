@@ -20,19 +20,23 @@ export async function inviteMember(workspaceId: string, email: string) {
   if (!user) return { success: false, error: { message: 'Not authenticated' } }
 
   // 1. Check if already a member
-  const { data: existingMember } = await supabase
+  const { data: profiles } = await supabase
     .from('profiles')
     .select('id')
     .eq('email', validated.data.email)
-    .single()
+    .limit(1)
+
+  const existingMember = profiles && profiles.length > 0 ? profiles[0] : null
 
   if (existingMember) {
-     const { data: membership } = await supabase
-       .from('workspace_members')
-       .select('id')
-       .eq('workspace_id', validated.data.workspaceId)
-       .eq('user_id', existingMember.id)
-       .single()
+     const { data: memberships } = await supabase
+        .from('workspace_members')
+        .select('id')
+        .eq('workspace_id', validated.data.workspaceId)
+        .eq('user_id', existingMember.id)
+        .limit(1)
+
+     const membership = memberships && memberships.length > 0 ? memberships[0] : null
 
      if (membership) {
        return { success: false, error: { message: 'User is already a member of this workspace.' } }

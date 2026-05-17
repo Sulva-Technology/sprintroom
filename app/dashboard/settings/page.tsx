@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { RecurringTasksList } from '@/components/recurring-tasks-list'
 import { CreateRecurringTaskDialog } from '@/components/create-recurring-task-dialog'
 import { ProfileForm } from '@/components/settings/profile-form'
+import { CurrencyPreferenceForm } from '@/components/settings/currency-preference-form'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -30,6 +31,16 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ProfileForm profile={profile} />
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card border-none">
+        <CardHeader>
+          <CardTitle className="text-lg">Workspace Preferences</CardTitle>
+          <CardDescription>Customize display settings for your finances and metrics.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CurrencyPreferenceForm />
         </CardContent>
       </Card>
 
