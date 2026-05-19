@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Brush,
 } from 'recharts'
 import { 
   TrendingUp, 
@@ -120,6 +121,7 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [currencyMode, setCurrencyMode] = useState<string>('auto')
+  const [timeframe, setTimeframe] = useState<string>('30D')
   const [resolvedCurrency, setResolvedCurrency] = useState<{ code: string; symbol: string }>({ code: 'USD', symbol: '$' })
   
   // Edit & Delete state
@@ -194,15 +196,27 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
       }
     })
 
-    const result = Object.values(dailyData)
+    let result = Object.values(dailyData)
       .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
-      .slice(-10) // Display the last 10 active dates
+
+    // Filter by timeframe
+    const today = new Date()
+    if (timeframe === '7D') {
+      const limit = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7)
+      result = result.filter(d => d.dateObj >= limit)
+    } else if (timeframe === '30D') {
+      const limit = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30)
+      result = result.filter(d => d.dateObj >= limit)
+    } else if (timeframe === '90D') {
+      const limit = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 90)
+      result = result.filter(d => d.dateObj >= limit)
+    }
 
     if (result.length === 0) {
       // Fallback to last 7 calendar days if no data exists
       const fallback: { name: string; income: number; expense: number }[] = []
-      const today = new Date()
-      for (let i = 6; i >= 0; i--) {
+      const daysCount = timeframe === '7D' ? 7 : timeframe === '30D' ? 30 : timeframe === '90D' ? 90 : 15
+      for (let i = daysCount - 1; i >= 0; i--) {
         const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
         fallback.push({ name: format(d, 'MMM d'), income: 0, expense: 0 })
       }
@@ -210,7 +224,7 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
     }
 
     return result
-  }, [entries])
+  }, [entries, timeframe])
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this financial entry?')) return
@@ -321,13 +335,30 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Charts Section */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Cash Flow Trends</CardTitle>
-            <CardDescription>Daily cash flow by transaction date</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle>Cash Flow Trends</CardTitle>
+              <CardDescription>Daily cash flow by transaction date</CardDescription>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              {['7D', '30D', '90D', 'All'].map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    timeframe === tf
+                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={chartData} barGap={4} barCategoryGap="25%">
                 <defs>
                   <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.85}/>
@@ -338,7 +369,7 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
                     <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.15}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
@@ -357,8 +388,20 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
                   formatter={(value) => [formatCurrency(Number(value)), '']}
                 />
                 <Legend iconType="circle" />
-                <Bar dataKey="income" name="Income" fill="url(#incomeGradient)" stroke="#10b981" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="expense" name="Expense" fill="url(#expenseGradient)" stroke="#f43f5e" strokeWidth={1} radius={[4, 4, 0, 0]} barSize={16} />
+                <Bar dataKey="income" name="Income" fill="url(#incomeGradient)" stroke="#10b981" strokeWidth={1} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                <Bar dataKey="expense" name="Expense" fill="url(#expenseGradient)" stroke="#f43f5e" strokeWidth={1} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                {chartData.length > 8 && (
+                  <Brush 
+                    dataKey="name" 
+                    height={20} 
+                    stroke="#6366f1" 
+                    fill="#ffffff" 
+                    gap={1}
+                    travellerWidth={8}
+                    startIndex={Math.max(0, chartData.length - 8)}
+                    endIndex={chartData.length - 1}
+                  />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
