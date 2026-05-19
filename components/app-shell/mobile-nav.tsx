@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Activity, Timer, Wallet } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Activity, Repeat2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/dashboard/focus', label: 'Focus', icon: Timer },
+  { href: '/dashboard/rhythms', label: 'Rhythms', icon: Repeat2 },
   { href: '/dashboard/team', label: 'Team', icon: Activity },
   { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
 ]

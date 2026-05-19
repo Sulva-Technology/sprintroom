@@ -170,22 +170,36 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
   const chartData = useMemo(() => {
     const months: Record<string, { name: string; income: number; expense: number }> = {}
     
+    // Pre-populate last 6 months in chronological order
+    const today = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const monthKey = format(d, 'MMM yy')
+      months[monthKey] = { name: monthKey, income: 0, expense: 0 }
+    }
+    
     entries.forEach(entry => {
-      const date = new Date(entry.entry_date)
-      const monthKey = format(date, 'MMM yy')
-      
-      if (!months[monthKey]) {
-        months[monthKey] = { name: monthKey, income: 0, expense: 0 }
+      // Parse YYYY-MM-DD date safely to avoid timezone shift errors
+      const parts = entry.entry_date.split('-')
+      let date: Date
+      if (parts.length === 3) {
+        date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+      } else {
+        date = new Date(entry.entry_date)
       }
       
-      if (entry.type === 'income') {
-        months[monthKey].income += Number(entry.amount)
-      } else if (entry.type === 'expense') {
-        months[monthKey].expense += Number(entry.amount)
+      const monthKey = format(date, 'MMM yy')
+      
+      if (months[monthKey]) {
+        if (entry.type === 'income') {
+          months[monthKey].income += Number(entry.amount)
+        } else if (entry.type === 'expense') {
+          months[monthKey].expense += Number(entry.amount)
+        }
       }
     })
 
-    return Object.values(months).reverse().slice(-6)
+    return Object.values(months)
   }, [entries])
 
   const handleDelete = async (id: string) => {
