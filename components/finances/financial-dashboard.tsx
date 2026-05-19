@@ -166,17 +166,9 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
     })
   }, [entries, searchTerm, typeFilter])
 
-  // Prepare chart data (last 6 months)
+  // Prepare chart data (daily cash flow history)
   const chartData = useMemo(() => {
-    const months: Record<string, { name: string; income: number; expense: number }> = {}
-    
-    // Pre-populate last 6 months in chronological order
-    const today = new Date()
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      const monthKey = format(d, 'MMM yy')
-      months[monthKey] = { name: monthKey, income: 0, expense: 0 }
-    }
+    const dailyData: Record<string, { dateObj: Date; name: string; income: number; expense: number }> = {}
     
     entries.forEach(entry => {
       // Parse YYYY-MM-DD date safely to avoid timezone shift errors
@@ -188,18 +180,36 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
         date = new Date(entry.entry_date)
       }
       
-      const monthKey = format(date, 'MMM yy')
+      const dayKey = format(date, 'yyyy-MM-dd')
+      const label = format(date, 'MMM d') // e.g. "May 19"
       
-      if (months[monthKey]) {
-        if (entry.type === 'income') {
-          months[monthKey].income += Number(entry.amount)
-        } else if (entry.type === 'expense') {
-          months[monthKey].expense += Number(entry.amount)
-        }
+      if (!dailyData[dayKey]) {
+        dailyData[dayKey] = { dateObj: date, name: label, income: 0, expense: 0 }
+      }
+      
+      if (entry.type === 'income') {
+        dailyData[dayKey].income += Number(entry.amount)
+      } else if (entry.type === 'expense') {
+        dailyData[dayKey].expense += Number(entry.amount)
       }
     })
 
-    return Object.values(months)
+    const result = Object.values(dailyData)
+      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
+      .slice(-10) // Display the last 10 active dates
+
+    if (result.length === 0) {
+      // Fallback to last 7 calendar days if no data exists
+      const fallback: { name: string; income: number; expense: number }[] = []
+      const today = new Date()
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i)
+        fallback.push({ name: format(d, 'MMM d'), income: 0, expense: 0 })
+      }
+      return fallback
+    }
+
+    return result
   }, [entries])
 
   const handleDelete = async (id: string) => {
@@ -313,7 +323,7 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Cash Flow Trends</CardTitle>
-            <CardDescription>Income vs Expenses over the last 6 months</CardDescription>
+            <CardDescription>Daily cash flow by transaction date</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
