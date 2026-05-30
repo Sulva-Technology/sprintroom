@@ -67,6 +67,7 @@ export async function inviteMember(workspaceId: string, email: string) {
       workspace_id: validated.data.workspaceId,
       email: normalizedEmail,
       inviter_id: user.id,
+      created_by: user.id,
       token: inviteToken,
     })
 
