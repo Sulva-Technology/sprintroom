@@ -36,6 +36,39 @@ ALTER TABLE public.workspace_invites
   ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now() NOT NULL,
   ADD COLUMN IF NOT EXISTS responded_at timestamp with time zone;
 
+DO $$
+DECLARE
+  token_data_type text;
+BEGIN
+  SELECT data_type
+  INTO token_data_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = 'workspace_invites'
+    AND column_name = 'token';
+
+  IF token_data_type IS NULL THEN
+    ALTER TABLE public.workspace_invites
+      ADD COLUMN token text NOT NULL DEFAULT gen_random_uuid()::text;
+  ELSIF token_data_type = 'uuid' THEN
+    UPDATE public.workspace_invites
+    SET token = gen_random_uuid()
+    WHERE token IS NULL;
+
+    ALTER TABLE public.workspace_invites
+      ALTER COLUMN token SET DEFAULT gen_random_uuid(),
+      ALTER COLUMN token SET NOT NULL;
+  ELSE
+    UPDATE public.workspace_invites
+    SET token = gen_random_uuid()::text
+    WHERE token IS NULL;
+
+    ALTER TABLE public.workspace_invites
+      ALTER COLUMN token SET DEFAULT gen_random_uuid()::text,
+      ALTER COLUMN token SET NOT NULL;
+  END IF;
+END $$;
+
 -- Enable RLS
 ALTER TABLE public.workspace_invites ENABLE ROW LEVEL SECURITY;
 

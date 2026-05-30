@@ -21,6 +21,7 @@ export async function inviteMember(workspaceId: string, email: string) {
   const requestHeaders = await headers()
   const origin = requestHeaders.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const normalizedEmail = validated.data.email.toLowerCase()
+  const inviteToken = crypto.randomUUID()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: { message: 'Not authenticated' } }
 
@@ -66,6 +67,7 @@ export async function inviteMember(workspaceId: string, email: string) {
       workspace_id: validated.data.workspaceId,
       email: normalizedEmail,
       inviter_id: user.id,
+      token: inviteToken,
     })
 
   if (error) {
