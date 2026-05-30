@@ -157,3 +157,5 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_my_workspace_invites() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_workspace_invite(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.decline_workspace_invite(uuid) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';

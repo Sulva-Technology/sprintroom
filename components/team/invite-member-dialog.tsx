@@ -40,7 +40,9 @@ export function InviteMemberDialog({
       onOpenChange(false)
     } else {
       const err = result.error as any
-      toast.error(err.message || "Failed to send invitation")
+      toast.error(err.message || "Failed to send invitation", {
+        description: err.details,
+      })
     }
   }
 

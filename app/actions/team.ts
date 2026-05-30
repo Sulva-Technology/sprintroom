@@ -62,20 +62,25 @@ export async function inviteMember(workspaceId: string, email: string) {
   // 2. Create Invite
   const { error } = await supabase
     .from('workspace_invites')
-    .upsert({
+    .insert({
       workspace_id: validated.data.workspaceId,
       email: normalizedEmail,
       inviter_id: user.id,
-      role: 'member',
-      status: 'pending',
-      responded_at: null,
-    }, {
-      onConflict: 'workspace_id,email',
     })
 
   if (error) {
+    if (error.code === '23505') {
+      return { success: false, error: { message: 'An invite for this email already exists in this workspace.' } }
+    }
+
     console.error("Error creating invite:", error)
-    return { success: false, error: { message: 'Database error', details: error.message } }
+    return {
+      success: false,
+      error: {
+        message: 'Database error',
+        details: error.message,
+      },
+    }
   }
 
   const inviteRedirectTo = `${origin}/auth/callback?next=/dashboard/invites`
