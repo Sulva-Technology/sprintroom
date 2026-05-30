@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.workspace_invites (
   role text DEFAULT 'member' NOT NULL,
   status text DEFAULT 'pending' NOT NULL, -- pending, accepted, declined
   created_at timestamp with time zone DEFAULT now() NOT NULL,
+  responded_at timestamp with time zone,
   UNIQUE(workspace_id, email)
 );
 
@@ -28,6 +29,12 @@ BEGIN
     ALTER TABLE public.workspace_invites ADD CONSTRAINT workspace_invites_workspace_id_email_key UNIQUE (workspace_id, email);
   END IF;
 END $$;
+
+ALTER TABLE public.workspace_invites
+  ADD COLUMN IF NOT EXISTS role text DEFAULT 'member' NOT NULL,
+  ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending' NOT NULL,
+  ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now() NOT NULL,
+  ADD COLUMN IF NOT EXISTS responded_at timestamp with time zone;
 
 -- Enable RLS
 ALTER TABLE public.workspace_invites ENABLE ROW LEVEL SECURITY;
@@ -62,7 +69,8 @@ BEGIN
 
         -- Mark the invite as accepted
         UPDATE public.workspace_invites 
-        SET status = 'accepted'
+        SET status = 'accepted',
+            responded_at = now()
         WHERE id = invite_record.id;
     END LOOP;
 

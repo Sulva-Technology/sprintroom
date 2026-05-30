@@ -47,7 +47,12 @@ export async function signup(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+
+  if (data.session) {
+    redirect('/dashboard')
+  }
+
+  return { success: true }
 }
 
 export async function resetPassword(formData: FormData) {

@@ -29,7 +29,13 @@ export function InviteMemberDialog({
     setIsSubmitting(false)
 
     if (result.success) {
-      toast.success(`Invitation sent to ${email}`)
+      if (result.emailSent === false) {
+        toast.warning("Invite saved, but the email could not be sent", {
+          description: result.emailError || "Check Supabase email settings and try again.",
+        })
+      } else {
+        toast.success(`Invitation sent to ${email}`)
+      }
       setEmail("")
       onOpenChange(false)
     } else {

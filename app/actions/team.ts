@@ -1,7 +1,9 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { z } from 'zod'
 
 const inviteMemberSchema = z.object({
@@ -16,14 +18,28 @@ export async function inviteMember(workspaceId: string, email: string) {
   }
 
   const supabase = await createClient()
+  const requestHeaders = await headers()
+  const origin = requestHeaders.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const normalizedEmail = validated.data.email.toLowerCase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: { message: 'Not authenticated' } }
+
+  const { data: inviterMembership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', validated.data.workspaceId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!inviterMembership || !['admin', 'owner'].includes(inviterMembership.role)) {
+    return { success: false, error: { message: 'Only workspace admins can invite members.' } }
+  }
 
   // 1. Check if already a member
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id')
-    .eq('email', validated.data.email)
+    .eq('email', normalizedEmail)
     .limit(1)
 
   const existingMember = profiles && profiles.length > 0 ? profiles[0] : null
@@ -46,19 +62,56 @@ export async function inviteMember(workspaceId: string, email: string) {
   // 2. Create Invite
   const { error } = await supabase
     .from('workspace_invites')
-    .insert({
+    .upsert({
       workspace_id: validated.data.workspaceId,
-      email: validated.data.email.toLowerCase(),
+      email: normalizedEmail,
       inviter_id: user.id,
-      status: 'pending'
+      role: 'member',
+      status: 'pending',
+      responded_at: null,
+    }, {
+      onConflict: 'workspace_id,email',
     })
 
   if (error) {
-    if (error.code === '23505') { // Unique constraint
-      return { success: false, error: { message: 'An invite for this email already exists in this workspace.' } }
-    }
     console.error("Error creating invite:", error)
     return { success: false, error: { message: 'Database error', details: error.message } }
+  }
+
+  const inviteRedirectTo = `${origin}/auth/callback?next=/dashboard/invites`
+  let emailSent = true
+  let emailError: string | undefined
+
+  const adminSupabase = createAdminClient()
+  if (adminSupabase) {
+    const { error: adminInviteError } = await adminSupabase.auth.admin.inviteUserByEmail(normalizedEmail, {
+      redirectTo: inviteRedirectTo,
+      data: {
+        invited_workspace_id: validated.data.workspaceId,
+      },
+    })
+
+    if (adminInviteError) {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: inviteRedirectTo,
+          shouldCreateUser: true,
+        },
+      })
+      emailSent = !otpError
+      emailError = otpError?.message || adminInviteError.message
+    }
+  } else {
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: inviteRedirectTo,
+        shouldCreateUser: true,
+      },
+    })
+    emailSent = !otpError
+    emailError = otpError?.message
   }
 
   // Record activity (wrap in try/catch so invite still succeeds even if log fails)
@@ -76,12 +129,12 @@ export async function inviteMember(workspaceId: string, email: string) {
       project_id: project?.id || null,
       user_id: user.id,
       type: 'member_invited',
-      body: `Invited ${validated.data.email}`
+      body: `Invited ${normalizedEmail}`
     })
   } catch (logError) {
     console.warn("Failed to log activity, but invite was created:", logError)
   }
 
   revalidatePath('/dashboard/team', 'layout')
-  return { success: true }
+  return { success: true, emailSent, emailError }
 }
