@@ -11,6 +11,16 @@ const inviteMemberSchema = z.object({
   email: z.string().email()
 })
 
+function buildInviteEmailError(email: string, providerMessage?: string) {
+  const baseMessage = `Supabase could not send the invite email. The invite is saved, so ask ${email} to sign in and open Invites.`
+
+  if (!providerMessage) {
+    return baseMessage
+  }
+
+  return `${baseMessage} Supabase said: ${providerMessage}`
+}
+
 export async function inviteMember(workspaceId: string, email: string) {
   const validated = inviteMemberSchema.safeParse({ workspaceId, email })
   if (!validated.success) {
@@ -108,7 +118,7 @@ export async function inviteMember(workspaceId: string, email: string) {
         },
       })
       emailSent = !otpError
-      emailError = otpError?.message || adminInviteError.message
+      emailError = emailSent ? undefined : buildInviteEmailError(normalizedEmail, otpError?.message || adminInviteError.message)
     }
   } else {
     const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -119,7 +129,7 @@ export async function inviteMember(workspaceId: string, email: string) {
       },
     })
     emailSent = !otpError
-    emailError = otpError?.message
+    emailError = emailSent ? undefined : buildInviteEmailError(normalizedEmail, otpError?.message)
   }
 
   // Record activity (wrap in try/catch so invite still succeeds even if log fails)

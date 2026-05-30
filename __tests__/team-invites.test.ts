@@ -4,6 +4,7 @@ import { inviteMember } from '@/app/actions/team'
 const mocks = vi.hoisted(() => ({
   insertedInvite: null as Record<string, unknown> | null,
   revalidatePath: vi.fn(),
+  otpError: null as { message: string } | null,
 }))
 
 vi.mock('next/cache', () => ({
@@ -26,7 +27,7 @@ vi.mock('@/lib/supabase/server', () => ({
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
       }),
-      signInWithOtp: vi.fn().mockResolvedValue({ error: null }),
+      signInWithOtp: vi.fn().mockImplementation(() => Promise.resolve({ error: mocks.otpError })),
     },
     from: vi.fn((table: string) => {
       if (table === 'workspace_members') {
@@ -82,6 +83,7 @@ vi.mock('@/lib/supabase/server', () => ({
 describe('team invite actions', () => {
   beforeEach(() => {
     mocks.insertedInvite = null
+    mocks.otpError = null
     mocks.revalidatePath.mockClear()
   })
 
@@ -97,6 +99,22 @@ describe('team invite actions', () => {
       email: 'colleague@example.com',
       inviter_id: 'user-1',
       created_by: 'user-1',
+    })
+  })
+
+  it('returns a useful recovery message when Supabase cannot send the email', async () => {
+    mocks.otpError = { message: 'Error sending magic link email' }
+
+    const result = await inviteMember(
+      '00000000-0000-4000-8000-000000000001',
+      'COLLEAGUE@example.com',
+    )
+
+    expect(result).toMatchObject({
+      success: true,
+      emailSent: false,
+      emailError:
+        'Supabase could not send the invite email. The invite is saved, so ask colleague@example.com to sign in and open Invites. Supabase said: Error sending magic link email',
     })
   })
 })
