@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   insertedInvite: null as Record<string, unknown> | null,
   revalidatePath: vi.fn(),
   otpError: null as { message: string } | null,
+  lastOtpArgs: null as Record<string, unknown> | null,
+  origin: 'https://app.example.com',
 }))
 
 vi.mock('next/cache', () => ({
@@ -13,7 +15,7 @@ vi.mock('next/cache', () => ({
 
 vi.mock('next/headers', () => ({
   headers: vi.fn().mockResolvedValue({
-    get: (name: string) => (name === 'origin' ? 'https://app.example.com' : null),
+    get: (name: string) => (name === 'origin' ? mocks.origin : null),
   }),
 }))
 
@@ -27,7 +29,10 @@ vi.mock('@/lib/supabase/server', () => ({
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
       }),
-      signInWithOtp: vi.fn().mockImplementation(() => Promise.resolve({ error: mocks.otpError })),
+      signInWithOtp: vi.fn().mockImplementation((args) => {
+        mocks.lastOtpArgs = args
+        return Promise.resolve({ error: mocks.otpError })
+      }),
     },
     from: vi.fn((table: string) => {
       if (table === 'workspace_members') {
@@ -81,10 +86,20 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 describe('team invite actions', () => {
+  const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+
   beforeEach(() => {
     mocks.insertedInvite = null
     mocks.otpError = null
+    mocks.lastOtpArgs = null
+    mocks.origin = 'https://app.example.com'
     mocks.revalidatePath.mockClear()
+
+    if (originalSiteUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_SITE_URL
+    } else {
+      process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl
+    }
   })
 
   it('records the authenticated user as the invite creator', async () => {
@@ -115,6 +130,24 @@ describe('team invite actions', () => {
       emailSent: false,
       emailError:
         'Supabase could not send the invite email. The invite is saved, so ask colleague@example.com to sign in and open Invites. Supabase said: Error sending magic link email',
+    })
+  })
+
+  it('uses the configured site URL for Supabase email redirects', async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://configured.example.com/'
+    mocks.origin = 'http://localhost:3001'
+
+    await inviteMember(
+      '00000000-0000-4000-8000-000000000001',
+      'COLLEAGUE@example.com',
+    )
+
+    expect(mocks.lastOtpArgs).toMatchObject({
+      email: 'colleague@example.com',
+      options: {
+        emailRedirectTo: 'https://configured.example.com/auth/callback?next=%2Fdashboard%2Finvites',
+        shouldCreateUser: true,
+      },
     })
   })
 })

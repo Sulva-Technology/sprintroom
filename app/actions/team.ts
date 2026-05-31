@@ -21,6 +21,16 @@ function buildInviteEmailError(email: string, providerMessage?: string) {
   return `${baseMessage} Supabase said: ${providerMessage}`
 }
 
+function getEmailRedirectBaseUrl(requestOrigin: string) {
+  return (process.env.NEXT_PUBLIC_SITE_URL || requestOrigin).replace(/\/+$/, '')
+}
+
+function buildInviteRedirectTo(requestOrigin: string) {
+  const redirectUrl = new URL('/auth/callback', getEmailRedirectBaseUrl(requestOrigin))
+  redirectUrl.searchParams.set('next', '/dashboard/invites')
+  return redirectUrl.toString()
+}
+
 export async function inviteMember(workspaceId: string, email: string) {
   const validated = inviteMemberSchema.safeParse({ workspaceId, email })
   if (!validated.success) {
@@ -96,7 +106,7 @@ export async function inviteMember(workspaceId: string, email: string) {
     }
   }
 
-  const inviteRedirectTo = `${origin}/auth/callback?next=/dashboard/invites`
+  const inviteRedirectTo = buildInviteRedirectTo(origin)
   let emailSent = true
   let emailError: string | undefined
 
