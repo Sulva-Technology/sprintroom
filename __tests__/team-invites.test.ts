@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   otpError: null as { message: string } | null,
   lastOtpArgs: null as Record<string, unknown> | null,
   origin: 'https://app.example.com',
+  fetch: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({
@@ -66,6 +67,16 @@ vi.mock('@/lib/supabase/server', () => ({
         }
       }
 
+      if (table === 'workspaces') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ data: { name: 'Engineering' }, error: null }),
+            }),
+          }),
+        }
+      }
+
       if (table === 'projects') {
         return {
           select: vi.fn().mockReturnValue({
@@ -87,12 +98,20 @@ vi.mock('@/lib/supabase/server', () => ({
 
 describe('team invite actions', () => {
   const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  const originalResendApiKey = process.env.RESEND_API_KEY
+  const originalInviteEmailFrom = process.env.INVITE_EMAIL_FROM
 
   beforeEach(() => {
     mocks.insertedInvite = null
     mocks.otpError = null
     mocks.lastOtpArgs = null
     mocks.origin = 'https://app.example.com'
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'email-1' }),
+      text: async () => '',
+    })
+    vi.stubGlobal('fetch', mocks.fetch)
     mocks.revalidatePath.mockClear()
 
     if (originalSiteUrl === undefined) {
@@ -100,6 +119,9 @@ describe('team invite actions', () => {
     } else {
       process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl
     }
+
+    process.env.RESEND_API_KEY = 're_test_key'
+    process.env.INVITE_EMAIL_FROM = 'SprintRoom <invites@example.com>'
   })
 
   it('records the authenticated user as the invite creator', async () => {
@@ -117,8 +139,32 @@ describe('team invite actions', () => {
     })
   })
 
-  it('returns a useful recovery message when Supabase cannot send the email', async () => {
-    mocks.otpError = { message: 'Error sending magic link email' }
+  it('sends invite emails through Resend without creating Supabase auth users', async () => {
+    const result = await inviteMember(
+      '00000000-0000-4000-8000-000000000001',
+      'COLLEAGUE@example.com',
+    )
+
+    expect(result).toMatchObject({
+      success: true,
+      emailSent: true,
+    })
+    expect(mocks.lastOtpArgs).toBeNull()
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://api.resend.com/emails',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer re_test_key',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    )
+  })
+
+  it('returns a Resend configuration message when no email provider is configured', async () => {
+    delete process.env.RESEND_API_KEY
+    delete process.env.INVITE_EMAIL_FROM
 
     const result = await inviteMember(
       '00000000-0000-4000-8000-000000000001',
@@ -128,12 +174,13 @@ describe('team invite actions', () => {
     expect(result).toMatchObject({
       success: true,
       emailSent: false,
-      emailError:
-        'Supabase could not send the invite email. The invite is saved, so ask colleague@example.com to sign in and open Invites. Supabase said: Error sending magic link email',
+      emailError: 'Resend is not configured. Add RESEND_API_KEY and INVITE_EMAIL_FROM to send invite emails.',
     })
+    expect(mocks.lastOtpArgs).toBeNull()
+    expect(mocks.fetch).not.toHaveBeenCalled()
   })
 
-  it('uses the configured site URL for Supabase email redirects', async () => {
+  it('uses the configured site URL for invite email links', async () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://configured.example.com/'
     mocks.origin = 'http://localhost:3001'
 
@@ -142,12 +189,24 @@ describe('team invite actions', () => {
       'COLLEAGUE@example.com',
     )
 
-    expect(mocks.lastOtpArgs).toMatchObject({
-      email: 'colleague@example.com',
-      options: {
-        emailRedirectTo: 'https://configured.example.com/auth/callback?next=%2Fdashboard%2Finvites',
-        shouldCreateUser: true,
-      },
-    })
+    const resendPayload = JSON.parse(mocks.fetch.mock.calls[0][1].body)
+    expect(resendPayload.html).toContain('https://configured.example.com/dashboard/invites')
+    expect(resendPayload.text).toContain('https://configured.example.com/dashboard/invites')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+
+    if (originalResendApiKey === undefined) {
+      delete process.env.RESEND_API_KEY
+    } else {
+      process.env.RESEND_API_KEY = originalResendApiKey
+    }
+
+    if (originalInviteEmailFrom === undefined) {
+      delete process.env.INVITE_EMAIL_FROM
+    } else {
+      process.env.INVITE_EMAIL_FROM = originalInviteEmailFrom
+    }
   })
 })

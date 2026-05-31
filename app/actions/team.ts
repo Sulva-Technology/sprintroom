@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { sendWorkspaceInviteEmail } from '@/lib/email/resend'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
@@ -11,24 +11,12 @@ const inviteMemberSchema = z.object({
   email: z.string().email()
 })
 
-function buildInviteEmailError(email: string, providerMessage?: string) {
-  const baseMessage = `Supabase could not send the invite email. The invite is saved, so ask ${email} to sign in and open Invites.`
-
-  if (!providerMessage) {
-    return baseMessage
-  }
-
-  return `${baseMessage} Supabase said: ${providerMessage}`
-}
-
 function getEmailRedirectBaseUrl(requestOrigin: string) {
   return (process.env.NEXT_PUBLIC_SITE_URL || requestOrigin).replace(/\/+$/, '')
 }
 
-function buildInviteRedirectTo(requestOrigin: string) {
-  const redirectUrl = new URL('/auth/callback', getEmailRedirectBaseUrl(requestOrigin))
-  redirectUrl.searchParams.set('next', '/dashboard/invites')
-  return redirectUrl.toString()
+function buildInvitesUrl(requestOrigin: string) {
+  return new URL('/dashboard/invites', getEmailRedirectBaseUrl(requestOrigin)).toString()
 }
 
 export async function inviteMember(workspaceId: string, email: string) {
@@ -55,6 +43,12 @@ export async function inviteMember(workspaceId: string, email: string) {
   if (!inviterMembership || !['admin', 'owner'].includes(inviterMembership.role)) {
     return { success: false, error: { message: 'Only workspace admins can invite members.' } }
   }
+
+  const { data: workspace } = await supabase
+    .from('workspaces')
+    .select('name')
+    .eq('id', validated.data.workspaceId)
+    .single()
 
   // 1. Check if already a member
   const { data: profiles } = await supabase
@@ -106,41 +100,13 @@ export async function inviteMember(workspaceId: string, email: string) {
     }
   }
 
-  const inviteRedirectTo = buildInviteRedirectTo(origin)
-  let emailSent = true
-  let emailError: string | undefined
-
-  const adminSupabase = createAdminClient()
-  if (adminSupabase) {
-    const { error: adminInviteError } = await adminSupabase.auth.admin.inviteUserByEmail(normalizedEmail, {
-      redirectTo: inviteRedirectTo,
-      data: {
-        invited_workspace_id: validated.data.workspaceId,
-      },
-    })
-
-    if (adminInviteError) {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: inviteRedirectTo,
-          shouldCreateUser: true,
-        },
-      })
-      emailSent = !otpError
-      emailError = emailSent ? undefined : buildInviteEmailError(normalizedEmail, otpError?.message || adminInviteError.message)
-    }
-  } else {
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: inviteRedirectTo,
-        shouldCreateUser: true,
-      },
-    })
-    emailSent = !otpError
-    emailError = emailSent ? undefined : buildInviteEmailError(normalizedEmail, otpError?.message)
-  }
+  const emailResult = await sendWorkspaceInviteEmail({
+    to: normalizedEmail,
+    inviteUrl: buildInvitesUrl(origin),
+    workspaceName: workspace?.name,
+  })
+  const emailSent = emailResult.sent
+  const emailError = emailResult.error
 
   // Record activity (wrap in try/catch so invite still succeeds even if log fails)
   try {

@@ -41,14 +41,25 @@ export default async function TeamPulsePage() {
   // 2. Fetch all members in these workspaces
   const { data: workspaceMembersRaw } = await supabase
     .from('workspace_members')
-    .select('user_id, profiles(full_name, avatar_url, email)')
+    .select('user_id')
     .in('workspace_id', workspaceIds)
+
+  const memberIds = Array.from(new Set(workspaceMembersRaw?.map(wm => wm.user_id).filter(Boolean) || []))
+
+  const { data: profilesRaw } = memberIds.length > 0
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, email')
+        .in('id', memberIds)
+    : { data: [] }
+
+  const profilesMap = new Map((profilesRaw || []).map(profile => [profile.id, profile]))
 
   // Deduplicate members
   const memberMap = new Map()
   workspaceMembersRaw?.forEach(wm => {
     if (!memberMap.has(wm.user_id)) {
-      const profile = Array.isArray(wm.profiles) ? wm.profiles[0] : wm.profiles
+      const profile = profilesMap.get(wm.user_id)
       memberMap.set(wm.user_id, {
         id: wm.user_id,
         name: profile?.full_name || 'Anonymous',
