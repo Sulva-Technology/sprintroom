@@ -35,6 +35,11 @@ export default function SignupPage() {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
     const confirm_password = formData.get('confirm_password') as string
+    const next = new URLSearchParams(window.location.search).get('next')
+
+    if (next) {
+      formData.set('next', next)
+    }
 
     try {
       // Client-side validation

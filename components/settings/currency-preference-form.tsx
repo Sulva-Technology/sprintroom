@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { CURRENCIES, useCurrencyPreference } from '@/hooks/use-currency-preference'
 import {
   Select,
   SelectContent,
@@ -12,63 +12,12 @@ import { Badge } from '@/components/ui/badge'
 import { Globe, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
-const detectCurrencyFromLocaleOrTimezone = (): { code: string; symbol: string } => {
-  if (typeof window === 'undefined') return { code: 'USD', symbol: '$' }
-  try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
-    const locale = navigator.language || ''
-    if (timezone.includes('London') || timezone.includes('Dublin') || locale.startsWith('en-GB')) {
-      return { code: 'GBP', symbol: '£' }
-    }
-    if (
-      timezone.includes('Europe') || 
-      ['de', 'fr', 'it', 'es', 'nl', 'be', 'at', 'fi', 'gr', 'pt'].some(l => locale.startsWith(l))
-    ) {
-      return { code: 'EUR', symbol: '€' }
-    }
-    if (timezone.includes('Tokyo') || timezone.includes('Asia/Tokyo') || locale.startsWith('ja')) {
-      return { code: 'JPY', symbol: '¥' }
-    }
-    if (timezone.includes('Calcutta') || timezone.includes('Kolkata') || locale.startsWith('hi') || locale.startsWith('en-IN')) {
-      return { code: 'INR', symbol: '₹' }
-    }
-    if (timezone.includes('Lagos') || timezone.includes('Africa/Lagos') || locale.startsWith('en-NG')) {
-      return { code: 'NGN', symbol: '₦' }
-    }
-    if (timezone.includes('Sydney') || timezone.includes('Melbourne') || timezone.includes('Australia') || locale.startsWith('en-AU')) {
-      return { code: 'AUD', symbol: 'A$' }
-    }
-    if (timezone.includes('Toronto') || timezone.includes('Vancouver') || timezone.includes('Canada') || locale.startsWith('en-CA')) {
-      return { code: 'CAD', symbol: 'CA$' }
-    }
-  } catch (e) {
-    console.error(e)
-  }
-  return { code: 'USD', symbol: '$' }
-}
-
 export function CurrencyPreferenceForm() {
-  const [currencyMode, setCurrencyMode] = useState<string>('auto')
-  const [autoResolved, setAutoResolved] = useState<{ code: string; symbol: string }>({ code: 'USD', symbol: '$' })
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    const saved = localStorage.getItem('sprint_finances_currency') || 'auto'
-    setCurrencyMode(saved)
-    setAutoResolved(detectCurrencyFromLocaleOrTimezone())
-  }, [])
+  const { autoResolved, currencyMode, resolvedCurrency, setCurrencyMode } = useCurrencyPreference()
 
   const handleCurrencyChange = (value: string) => {
     setCurrencyMode(value)
-    localStorage.setItem('sprint_finances_currency', value)
-    // Dispatch storage event to sync all open tabs/components
-    window.dispatchEvent(new Event('storage'))
     toast.success('Currency preference updated successfully')
-  }
-
-  if (!mounted) {
-    return <div className="h-10 bg-slate-100 animate-pulse rounded-xl" />
   }
 
   return (
@@ -88,15 +37,12 @@ export function CurrencyPreferenceForm() {
               <SelectValue placeholder="Select currency mode" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">🌍 Auto (Location Detected)</SelectItem>
-              <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
-              <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
-              <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
-              <SelectItem value="JPY">🇯🇵 JPY (¥)</SelectItem>
-              <SelectItem value="CAD">🇨🇦 CAD (CA$)</SelectItem>
-              <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
-              <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
-              <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
+              <SelectItem value="auto">Auto (Location Detected)</SelectItem>
+              {Object.values(CURRENCIES).map((currency) => (
+                <SelectItem key={currency.code} value={currency.code}>
+                  {currency.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -109,9 +55,9 @@ export function CurrencyPreferenceForm() {
         </div>
         <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-50 font-bold px-2 py-0.5 text-xs flex items-center gap-1">
           <Check className="w-3 h-3 text-indigo-600" />
-          {currencyMode === 'auto' 
-            ? `${autoResolved.code} (${autoResolved.symbol}) [Auto]` 
-            : `${currencyMode} (${currencyMode === 'USD' ? '$' : currencyMode === 'EUR' ? '€' : currencyMode === 'GBP' ? '£' : currencyMode === 'JPY' ? '¥' : currencyMode === 'CAD' ? 'CA$' : currencyMode === 'AUD' ? 'A$' : currencyMode === 'INR' ? '₹' : '₦'})`
+          {currencyMode === 'auto'
+            ? `${autoResolved.code} (${autoResolved.symbol}) [Auto]`
+            : `${resolvedCurrency.code} (${resolvedCurrency.symbol})`
           }
         </Badge>
       </div>

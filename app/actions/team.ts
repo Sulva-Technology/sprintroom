@@ -15,8 +15,8 @@ function getEmailRedirectBaseUrl(requestOrigin: string) {
   return (process.env.NEXT_PUBLIC_SITE_URL || requestOrigin).replace(/\/+$/, '')
 }
 
-function buildInvitesUrl(requestOrigin: string) {
-  return new URL('/dashboard/invites', getEmailRedirectBaseUrl(requestOrigin)).toString()
+function buildInviteUrl(requestOrigin: string, token: string) {
+  return new URL(`/invite/${encodeURIComponent(token)}`, getEmailRedirectBaseUrl(requestOrigin)).toString()
 }
 
 export async function inviteMember(workspaceId: string, email: string) {
@@ -100,9 +100,10 @@ export async function inviteMember(workspaceId: string, email: string) {
     }
   }
 
+  const inviteUrl = buildInviteUrl(origin, inviteToken)
   const emailResult = await sendWorkspaceInviteEmail({
     to: normalizedEmail,
-    inviteUrl: buildInvitesUrl(origin),
+    inviteUrl,
     workspaceName: workspace?.name,
   })
   const emailSent = emailResult.sent
@@ -130,5 +131,5 @@ export async function inviteMember(workspaceId: string, email: string) {
   }
 
   revalidatePath('/dashboard/team', 'layout')
-  return { success: true, emailSent, emailError }
+  return { success: true, emailSent, emailError, inviteUrl }
 }

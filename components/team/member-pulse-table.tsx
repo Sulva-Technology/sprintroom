@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -23,12 +22,17 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
-export function MemberPulseTable({ members }: { members: any[] }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+function LastActivity({ value }: { value?: string | null }) {
+  if (!value) return <>Never</>
 
+  return (
+    <time dateTime={value} suppressHydrationWarning>
+      {formatDistanceToNow(new Date(value), { addSuffix: true })}
+    </time>
+  )
+}
+
+export function MemberPulseTable({ members }: { members: any[] }) {
   return (
     <div className="w-full">
       <div className="hidden md:block overflow-hidden bg-white rounded-2xl border border-border shadow-sm">
@@ -83,7 +87,7 @@ export function MemberPulseTable({ members }: { members: any[] }) {
                      )}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground text-xs whitespace-nowrap">
-                    {mounted && member.lastActivity ? formatDistanceToNow(new Date(member.lastActivity), { addSuffix: true }) : member.lastActivity ? 'Recent' : 'Never'}
+                    <LastActivity value={member.lastActivity} />
                   </td>
                   <td className="px-6 py-4">
                      <p className="text-xs text-foreground/80 font-medium leading-relaxed">{member.insight}</p>
@@ -133,7 +137,7 @@ export function MemberPulseTable({ members }: { members: any[] }) {
                </div>
                <div>
                   <span className="text-muted-foreground block text-xs font-semibold uppercase mb-1">Last Activity</span>
-                  <span className="font-medium text-xs">{mounted && member.lastActivity ? formatDistanceToNow(new Date(member.lastActivity), { addSuffix: true }) : member.lastActivity ? 'Recent' : 'Never'}</span>
+                  <span className="font-medium text-xs"><LastActivity value={member.lastActivity} /></span>
                </div>
             </div>
           </Card>

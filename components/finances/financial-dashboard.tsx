@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -45,6 +45,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { EditEntryDialog } from './edit-entry-dialog'
 import { deleteFinancialEntry } from '@/app/actions/finances'
+import { useCurrencyPreference } from '@/hooks/use-currency-preference'
 
 interface Entry {
   id: string
@@ -120,40 +121,16 @@ const detectCurrencyFromLocaleOrTimezone = (): { code: string; symbol: string } 
 export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, projects }: FinancialDashboardProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [currencyMode, setCurrencyMode] = useState<string>('auto')
   const [timeframe, setTimeframe] = useState<string>('30D')
-  const [resolvedCurrency, setResolvedCurrency] = useState<{ code: string; symbol: string }>({ code: 'USD', symbol: '$' })
+  const { currencyMode, resolvedCurrency, setCurrencyMode } = useCurrencyPreference()
   
   // Edit & Delete state
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
-  // Sync preference with localStorage and handle other tabs/settings changing it
-  useEffect(() => {
-    const syncCurrency = () => {
-      const saved = localStorage.getItem('sprint_finances_currency') || 'auto'
-      setCurrencyMode(saved)
-    }
-    syncCurrency()
-    window.addEventListener('storage', syncCurrency)
-    return () => window.removeEventListener('storage', syncCurrency)
-  }, [])
-
-  useEffect(() => {
-    if (currencyMode === 'auto') {
-      const detected = detectCurrencyFromLocaleOrTimezone()
-      setResolvedCurrency(detected)
-    } else {
-      const mapped = CURRENCIES[currencyMode as keyof typeof CURRENCIES] || CURRENCIES.USD
-      setResolvedCurrency({ code: mapped.code, symbol: mapped.symbol })
-    }
-  }, [currencyMode])
-
   const handleCurrencyChange = (value: string) => {
     setCurrencyMode(value)
-    localStorage.setItem('sprint_finances_currency', value)
-    window.dispatchEvent(new Event('storage'))
   }
 
   const formatCurrency = (amount: number) => {
@@ -265,15 +242,12 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
               <SelectValue placeholder="Change currency" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="auto">🌍 Auto ({detectCurrencyFromLocaleOrTimezone().code})</SelectItem>
-              <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
-              <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
-              <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
-              <SelectItem value="JPY">🇯🇵 JPY (¥)</SelectItem>
-              <SelectItem value="CAD">🇨🇦 CAD (CA$)</SelectItem>
-              <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
-              <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
-              <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
+              <SelectItem value="auto">Auto ({detectCurrencyFromLocaleOrTimezone().code})</SelectItem>
+              {Object.values(CURRENCIES).map((currency) => (
+                <SelectItem key={currency.code} value={currency.code}>
+                  {currency.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -543,4 +517,3 @@ export function FinancialDashboard({ entries, metrics, aiInsights, workspaceId, 
     </div>
   )
 }
-

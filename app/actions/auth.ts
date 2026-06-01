@@ -5,9 +5,16 @@ import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
+function getSafeRedirectPath(value: FormDataEntryValue | null, fallback = '/dashboard') {
+  if (typeof value !== 'string') return fallback
+  if (!value.startsWith('/') || value.startsWith('//')) return fallback
+  return value
+}
+
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const next = getSafeRedirectPath(formData.get('next'))
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -19,13 +26,14 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
   
-  redirect('/dashboard')
+  redirect(next)
 }
 
 export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
+  const next = getSafeRedirectPath(formData.get('next'))
 
   const supabase = await createClient()
   const requestHeaders = await headers()
@@ -38,7 +46,7 @@ export async function signup(formData: FormData) {
       data: {
         full_name: fullName,
       },
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
     }
   })
 
@@ -49,7 +57,7 @@ export async function signup(formData: FormData) {
   revalidatePath('/', 'layout')
 
   if (data.session) {
-    redirect('/dashboard')
+    redirect(next)
   }
 
   return { success: true }

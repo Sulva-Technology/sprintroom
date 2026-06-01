@@ -24,14 +24,19 @@
 - Hardened focus tube rendering when no active session exists.
 - Replaced dashboard mock stats with workspace-scoped Supabase data.
 - Patched Supabase migration setup so RLS-referenced tables/columns exist before policies are applied.
+- Added token-backed `/invite/[token]` landing links for workspace invites, including manual copy/share from the invite dialog and `next` preservation through login/signup.
+- Patched Supabase middleware so localhost skips auth enforcement when Supabase auth is unreachable instead of surfacing repeated retryable fetch failures.
+- Removed React compiler-blocking set-state-in-effect currency/member-pulse mount hacks by moving currency preference reads to `useSyncExternalStore` and rendering member activity directly with hydration suppression.
 
 ## Verification
 - Targeted ESLint passes for touched invite/auth files.
 - `npm run build` passes.
+- `npm run lint` passes repo-wide.
+- `npm test -- --run __tests__/team-invites.test.ts` passes.
 - Smoke checked `/`, `/login`, `/forgot-password`, `/update-password`, and `/offline` on the local dev server.
 - For the invite work: browser smoke checks confirmed `/dashboard/invites` redirects unauthenticated users to login while `/signup` renders account creation.
 
 ## Remaining Risks
 - Full authenticated workflows still need real Supabase data and credentials to exercise create project/task, focus session, and offline sync end to end.
-- Repo-wide `npm run lint` is currently blocked by existing React compiler set-state-in-effect errors in finance/settings/team components unrelated to the invite changes.
+- Full `npm test` still has unrelated pre-existing failures in AI/focus mocks and node:test-style files being picked up as Vitest suites.
 - Production Supabase email settings still need to allow the deployed app's `/auth/callback` redirect URL, and `SUPABASE_SERVICE_ROLE_KEY` should be set server-side for official Auth invite emails.

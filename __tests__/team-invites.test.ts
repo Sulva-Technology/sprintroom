@@ -106,6 +106,7 @@ describe('team invite actions', () => {
     mocks.otpError = null
     mocks.lastOtpArgs = null
     mocks.origin = 'https://app.example.com'
+    mocks.fetch.mockClear()
     mocks.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({ id: 'email-1' }),
@@ -137,6 +138,7 @@ describe('team invite actions', () => {
       inviter_id: 'user-1',
       created_by: 'user-1',
     })
+    expect(mocks.insertedInvite?.token).toEqual(expect.any(String))
   })
 
   it('sends invite emails through Resend without creating Supabase auth users', async () => {
@@ -190,8 +192,20 @@ describe('team invite actions', () => {
     )
 
     const resendPayload = JSON.parse(mocks.fetch.mock.calls[0][1].body)
-    expect(resendPayload.html).toContain('https://configured.example.com/dashboard/invites')
-    expect(resendPayload.text).toContain('https://configured.example.com/dashboard/invites')
+    expect(resendPayload.html).toContain(`https://configured.example.com/invite/${mocks.insertedInvite?.token}`)
+    expect(resendPayload.text).toContain(`https://configured.example.com/invite/${mocks.insertedInvite?.token}`)
+  })
+
+  it('returns the direct invite link for manual sharing', async () => {
+    const result = await inviteMember(
+      '00000000-0000-4000-8000-000000000001',
+      'COLLEAGUE@example.com',
+    )
+
+    expect(result).toMatchObject({
+      success: true,
+      inviteUrl: `https://app.example.com/invite/${mocks.insertedInvite?.token}`,
+    })
   })
 
   afterEach(() => {

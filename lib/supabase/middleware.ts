@@ -1,6 +1,33 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+function isLocalDevelopmentRequest(request: NextRequest) {
+  return ['localhost', '127.0.0.1', '::1'].includes(request.nextUrl.hostname)
+}
+
+function isSupabaseReachabilityError(error: unknown) {
+  if (!(error instanceof Error)) return false
+
+  return (
+    error.name === 'AuthRetryableFetchError' ||
+    error.message.includes('fetch failed') ||
+    error.message.includes('Failed to fetch')
+  )
+}
+
+function isPublicPath(pathname: string) {
+  return (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/update-password') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/invite') ||
+    pathname === '/' ||
+    pathname.startsWith('/setup')
+  )
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -34,17 +61,27 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser().catch((error: unknown) => {
+    if (isLocalDevelopmentRequest(request) && isSupabaseReachabilityError(error)) {
+      return { data: { user: null }, error }
+    }
+
+    throw error
+  })
+
+  if (isLocalDevelopmentRequest(request) && !user) {
+    try {
+      const healthUrl = new URL('/auth/v1/health', process.env.NEXT_PUBLIC_SUPABASE_URL!)
+      const response = await fetch(healthUrl, { cache: 'no-store' })
+      if (!response.ok) return supabaseResponse
+    } catch {
+      return supabaseResponse
+    }
+  }
 
   if (
     !user && 
-    !request.nextUrl.pathname.startsWith('/login') && 
-    !request.nextUrl.pathname.startsWith('/signup') && 
-    !request.nextUrl.pathname.startsWith('/forgot-password') &&
-    !request.nextUrl.pathname.startsWith('/update-password') &&
-    !request.nextUrl.pathname.startsWith('/auth') &&
-    request.nextUrl.pathname !== '/' && 
-    !request.nextUrl.pathname.startsWith('/setup')
+    !isPublicPath(request.nextUrl.pathname)
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
