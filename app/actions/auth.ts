@@ -1,14 +1,24 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendSignupConfirmationEmail } from '@/lib/email/resend'
+import { getSafeRedirectPath } from '@/lib/auth/redirect'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
-function getSafeRedirectPath(value: FormDataEntryValue | null, fallback = '/dashboard') {
-  if (typeof value !== 'string') return fallback
-  if (!value.startsWith('/') || value.startsWith('//')) return fallback
-  return value
+function isConfirmationEmailDeliveryError(error: { message?: string; status?: number; code?: string } | null) {
+  if (!error) return false
+
+  const message = error.message || ''
+
+  if (!/confirmation (email|mail)/i.test(message)) return false
+
+  return (
+    /send|sending|sent|deliver|delivery|smtp/i.test(message) ||
+    (error.status === 500 && error.code === 'unexpected_failure')
+  )
 }
 
 export async function login(formData: FormData) {
@@ -30,7 +40,7 @@ export async function login(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = ((formData.get('email') as string) || '').trim().toLowerCase()
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
   const next = getSafeRedirectPath(formData.get('next'))
@@ -51,6 +61,48 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
+    if (isConfirmationEmailDeliveryError(error)) {
+      const admin = createAdminClient()
+      if (!admin) {
+        return {
+          error: 'Could not send the confirmation email. Configure Supabase SMTP or add SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, and AUTH_EMAIL_FROM for the Resend fallback.',
+        }
+      }
+
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'signup',
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      })
+
+      if (linkError) {
+        return { error: linkError.message }
+      }
+
+      const confirmationUrl = linkData.properties?.action_link
+      if (!confirmationUrl) {
+        return { error: 'Could not create a signup confirmation link.' }
+      }
+
+      const confirmationEmail = await sendSignupConfirmationEmail({
+        to: email,
+        confirmationUrl,
+      })
+
+      if (!confirmationEmail.sent) {
+        return { error: confirmationEmail.error }
+      }
+
+      revalidatePath('/', 'layout')
+      return { success: true }
+    }
+
     return { error: error.message }
   }
 

@@ -7,28 +7,25 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null })
     },
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          order: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue({ data: [] }),
-            not: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({ data: [] })
-              })
-            })
-          })
-        })
-      })
+    from: vi.fn().mockImplementation(() => {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        order: vi.fn(() => query),
+        limit: vi.fn().mockResolvedValue({ data: [] }),
+      }
+      return query
     })
   })
 }))
 
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: {
+vi.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
+    getGenerativeModel: vi.fn().mockReturnValue({
       generateContent: vi.fn().mockResolvedValue({
-        text: JSON.stringify([
+        response: {
+          text: () => JSON.stringify([
           {
             title: "Test AI Task",
             description: "A generated task",
@@ -36,9 +33,10 @@ vi.mock('@google/genai', () => ({
             is_rhythm: false,
             estimated_pomodoros: 2
           }
-        ])
+        ]),
+        }
       })
-    }
+    })
   }))
 }))
 

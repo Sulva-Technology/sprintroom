@@ -39,8 +39,8 @@ CREATE POLICY "Users can manage their own focus schedules"
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- Note: The cron job creation (using pg_cron) should ideally be executed
--- after the Edge Function is deployed and the environment variables for URL/Keys
--- are available. A sample script is below:
+-- after the Edge Function is deployed and CRON_SECRET is set as a database
+-- secret and Edge Function secret. A sample script is below:
 
 /*
 SELECT cron.schedule(
@@ -51,7 +51,12 @@ SELECT cron.schedule(
       url:='https://[PROJECT-REF].supabase.co/functions/v1/process-schedules',
       headers:=jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer [SERVICE_ROLE_KEY]'
+        'Authorization', 'Bearer ' || (
+          SELECT decrypted_secret
+          FROM vault.decrypted_secrets
+          WHERE name = 'CRON_SECRET'
+          LIMIT 1
+        )
       ),
       body:='{}'::jsonb
     )

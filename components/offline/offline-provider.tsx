@@ -83,15 +83,6 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isOnline, syncExecutor])
 
-  // Setup service worker on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => {
-        console.warn('Service Worker registration failed:', err)
-      })
-    }
-  }, [])
-
   return (
     <>
       <OfflineBanner />

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { PWAInstaller } from '@/components/pwa-installer';
+import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -18,6 +19,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
       <body suppressHydrationWarning>
         <TooltipProvider>
           {children}
+          <ServiceWorkerRegistrar />
           <PWAInstaller />
           <Toaster position="bottom-right" />
         </TooltipProvider>

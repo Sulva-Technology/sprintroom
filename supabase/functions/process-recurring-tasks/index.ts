@@ -1,10 +1,20 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
+function isAuthorized(req: Request) {
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (!cronSecret) return false;
+  return req.headers.get("Authorization") === `Bearer ${cronSecret}`;
+}
+
 serve(async (req) => {
   // Only allow POST requests (e.g. from pg_cron)
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
+  }
+
+  if (!isAuthorized(req)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   try {

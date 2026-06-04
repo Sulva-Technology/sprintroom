@@ -1,22 +1,23 @@
-import test from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, expect, it } from 'vitest'
 
 import {
   getDefaultPomodoroScheduleValues,
   getDefaultFocusSessionStartTime,
-} from './focus-schedule-defaults.ts'
+} from './focus-schedule-defaults'
 
-test('builds default pomodoro schedule values from a base time', () => {
-  const values = getDefaultPomodoroScheduleValues(new Date('2026-05-14T10:15:00+01:00'))
+describe('focus schedule defaults', () => {
+  it('builds default pomodoro schedule values from a base time', () => {
+    const values = getDefaultPomodoroScheduleValues(new Date('2026-05-14T10:15:00+01:00'))
 
-  assert.deepEqual(values, {
-    date: '2026-05-14',
-    time: '10:45',
+    expect(values).toEqual({
+      date: '2026-05-14',
+      time: '10:45',
+    })
   })
-})
 
-test('builds a default focus-session start time five minutes ahead in local-input format', () => {
-  const value = getDefaultFocusSessionStartTime(new Date('2026-05-14T10:15:00+01:00'))
+  it('builds a default focus-session start time five minutes ahead in local-input format', () => {
+    const value = getDefaultFocusSessionStartTime(new Date('2026-05-14T10:15:00+01:00'))
 
-  assert.equal(value, '2026-05-14T10:20')
+    expect(value).toBe('2026-05-14T10:20')
+  })
 })

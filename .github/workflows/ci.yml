@@ -30,6 +30,9 @@ jobs:
         
       - name: Run Tests
         run: npm run test
+
+      - name: Build
+        run: npm run build
         
   supabase-migration-lint:
     name: Validate Supabase Migrations

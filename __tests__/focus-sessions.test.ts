@@ -7,28 +7,38 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
     },
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
+    from: vi.fn()
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'session-1',
-                    task_id: 'task-1',
-                    status: 'active',
-                    duration_minutes: 25,
-                    started_at: new Date().toISOString()
-                  },
-                  error: null
+            eq: vi.fn().mockReturnValue({
+              lte: vi.fn().mockResolvedValue({ data: [], error: null })
+            })
+          })
+        })
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: {
+                      id: 'session-1',
+                      task_id: 'task-1',
+                      status: 'active',
+                      duration_minutes: 25,
+                      started_at: new Date().toISOString()
+                    },
+                    error: null
+                  })
                 })
               })
             })
           })
         })
       })
-    })
   })
 }))
 

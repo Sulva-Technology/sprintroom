@@ -4,6 +4,11 @@ type InviteEmailInput = {
   workspaceName?: string | null
 }
 
+type SignupConfirmationEmailInput = {
+  to: string
+  confirmationUrl: string
+}
+
 type ResendErrorPayload = {
   message?: string
   error?: string
@@ -75,6 +80,57 @@ export async function sendWorkspaceInviteEmail({ to, inviteUrl, workspaceName }:
 
   if (!response.ok) {
     return { sent: false, error: `Resend could not send the invite email. ${await readResendError(response)}` }
+  }
+
+  return { sent: true, error: undefined }
+}
+
+export async function sendSignupConfirmationEmail({ to, confirmationUrl }: SignupConfirmationEmailInput) {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.AUTH_EMAIL_FROM || process.env.INVITE_EMAIL_FROM
+
+  if (!apiKey || !from) {
+    return {
+      sent: false,
+      error: 'Resend is not configured. Add RESEND_API_KEY and AUTH_EMAIL_FROM to send signup confirmation emails.',
+    }
+  }
+
+  const safeConfirmationUrl = escapeHtml(confirmationUrl)
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject: 'Confirm your SprintRoom account',
+      text: [
+        'Confirm your SprintRoom account.',
+        '',
+        'Open this link to verify your email address:',
+        confirmationUrl,
+      ].join('\n'),
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+          <h1 style="font-size:20px;margin:0 0 12px">Confirm your SprintRoom account</h1>
+          <p style="margin:0 0 16px">Open this link to verify your email address and finish creating your account.</p>
+          <p style="margin:0 0 20px">
+            <a href="${safeConfirmationUrl}" style="background:#111827;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;display:inline-block">
+              Confirm account
+            </a>
+          </p>
+          <p style="margin:0;color:#6b7280;font-size:13px">If the button does not work, copy and paste this link: ${safeConfirmationUrl}</p>
+        </div>
+      `,
+    }),
+  })
+
+  if (!response.ok) {
+    return { sent: false, error: `Resend could not send the signup confirmation email. ${await readResendError(response)}` }
   }
 
   return { sent: true, error: undefined }

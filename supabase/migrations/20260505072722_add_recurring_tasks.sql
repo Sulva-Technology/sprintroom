@@ -36,7 +36,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.task_recurrence_rules;
 
 /*
 -- NOTE: The pg_cron job to invoke the edge function.
--- Should be executed after deploying edge function and setting secrets
+-- Should be executed after deploying edge function and setting CRON_SECRET
+-- as a database secret and Edge Function secret.
 SELECT cron.schedule(
   'process-recurring-tasks',
   '0 * * * *', -- Run every hour
@@ -45,7 +46,12 @@ SELECT cron.schedule(
       url:='https://[PROJECT-REF].supabase.co/functions/v1/process-recurring-tasks',
       headers:=jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer [SERVICE_ROLE_KEY]'
+        'Authorization', 'Bearer ' || (
+          SELECT decrypted_secret
+          FROM vault.decrypted_secrets
+          WHERE name = 'CRON_SECRET'
+          LIMIT 1
+        )
       ),
       body:='{}'::jsonb
     )
