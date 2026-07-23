@@ -24,7 +24,11 @@ function isPublicPath(pathname: string) {
     pathname.startsWith('/auth') ||
     pathname.startsWith('/invite') ||
     pathname === '/' ||
-    pathname.startsWith('/setup')
+    pathname.startsWith('/setup') ||
+    // The PWA offline fallback holds no user data and must stay reachable
+    // signed-out; redirecting it to /login would cache login HTML as the
+    // offline page.
+    pathname === '/offline'
   )
 }
 

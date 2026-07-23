@@ -15,6 +15,8 @@ export const metadata = noIndexMetadata;
 import { OfflineProvider } from '@/components/offline/offline-provider'
 import { AlarmManager } from '@/components/dashboard/alarm-manager'
 import { RealtimePulse } from '@/components/app-shell/realtime-pulse'
+import { CacheWriter } from '@/components/offline/cache-writer'
+import { RouteWarmer } from '@/components/offline/route-warmer'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
@@ -54,6 +56,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
         <MobileNav />
         <FocusTubeProvider initialSession={activeFocus} userId={user.id} />
+        <CacheWriter workspaces={workspaces} projects={recentProjects} />
+        <RouteWarmer projectIds={(recentProjects || []).map((project: any) => project.id)} />
       </div>
     </OfflineProvider>
   )

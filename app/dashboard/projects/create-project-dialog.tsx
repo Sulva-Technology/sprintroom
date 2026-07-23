@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { createProject } from '@/app/actions/projects'
+import { addToSyncQueue } from '@/lib/offline/sync-queue'
+import { upsertCachedProject } from '@/lib/offline/cache-utils'
 import { z } from 'zod'
 import { toast } from "sonner"
 import { useRouter } from 'next/navigation'
@@ -42,7 +44,28 @@ export function CreateProjectDialog({ trigger, defaultOpen = false }: { trigger?
 
     try {
       projectSchema.parse({ name, description })
-      
+
+      if (!navigator.onLine) {
+        // The server resolves the workspace from the active_workspace_id cookie,
+        // so the queued payload carries only what the user typed; the workspace
+        // is decided at drain time exactly as it would have been online.
+        const tempId = crypto.randomUUID()
+        await upsertCachedProject({
+          id: tempId,
+          name,
+          description: description || null,
+          workspace_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          __pendingSync: true,
+        })
+        await addToSyncQueue('create_project', 'project', tempId, { name, description })
+        toast.info('Project queued — it will be created when you are back online')
+        setOpen(false)
+        router.refresh()
+        return
+      }
+
       const res = await createProject({ name, description })
       if (res?.error) {
         setErrors({ root: res.error })

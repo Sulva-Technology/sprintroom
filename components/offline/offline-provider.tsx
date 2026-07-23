@@ -15,15 +15,41 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const { isOnline } = useNetworkStatus()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const syncExecutor = useCallback(async (item: any) => {
+  const syncExecutor = useCallback(async (item: any): Promise<{ newId?: string } | void> => {
     // Map item.action to actual server requests
     const { action, payload, entity_id, workspace_id, project_id } = item
-    
+
     switch (action) {
-      case 'create_task':
+      case 'create_task': {
         if (!project_id) throw new Error('Missing project_id')
-        await createTask(payload)
-        break;
+        const res = await createTask(payload)
+        if (res && (res as any).error) throw new Error((res as any).error.message || 'Create failed')
+        // Return the real server id so follow-up queued items on this task remap.
+        return { newId: (res as any)?.id }
+      }
+      case 'create_project': {
+        const { createProject } = await import('@/app/actions/projects')
+        const res = await createProject(payload)
+        if (!res?.success) throw new Error(res?.error?.message || 'Create project failed')
+
+        // Swap the optimistic temp row for the real one so the list stops
+        // showing a pending placeholder and later items remap to the server id.
+        const { deleteCachedProject, upsertCachedProject } = await import('@/lib/offline/cache-utils')
+        await deleteCachedProject(entity_id)
+        await upsertCachedProject(res.project)
+
+        return { newId: res.project?.id }
+      }
+      case 'create_workspace': {
+        const { createWorkspace } = await import('@/app/actions/workspaces')
+        const res = await createWorkspace(payload.name, payload.initial)
+        if (!res?.success) throw new Error(res?.error?.message || 'Create workspace failed')
+
+        const { upsertCachedWorkspace } = await import('@/lib/offline/cache-utils')
+        if ((res as any).workspace) await upsertCachedWorkspace((res as any).workspace)
+
+        return { newId: (res as any).workspace?.id }
+      }
       case 'update_task':
         await updateTask(entity_id, payload, project_id || '')
         break;
@@ -47,18 +73,25 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           await deleteChecklistItem(entity_id, project_id)
         }
         break;
-      case 'complete_focus_session':
-        const { completeFocusSession } = await import('@/app/actions/focus')
-        await completeFocusSession(entity_id, payload.note, payload.meaningful, payload.distractions)
+      case 'complete_focus_session': {
+        // Use the non-redirecting core so background sync doesn't navigate the
+        // user away, and so a retry can't double-count the pomodoro.
+        const { completeFocusSessionCore } = await import('@/app/actions/focus')
+        const res = await completeFocusSessionCore(entity_id, payload.note, payload.meaningful, payload.distractions)
+        if (!res.success) throw new Error(res.error || 'Complete failed')
         break;
-      case 'increment_distraction':
+      }
+      case 'increment_distraction': {
         const { incrementDistraction } = await import('@/app/actions/focus')
         await incrementDistraction(entity_id)
         break;
-      case 'cancel_focus_session':
-        const { cancelFocusSession } = await import('@/app/actions/focus')
-        await cancelFocusSession(entity_id)
+      }
+      case 'cancel_focus_session': {
+        const { cancelFocusSessionCore } = await import('@/app/actions/focus')
+        const res = await cancelFocusSessionCore(entity_id)
+        if (!res.success) throw new Error(res.error || 'Cancel failed')
         break;
+      }
       default:
         throw new Error(`Unknown action type: ${action}`)
     }

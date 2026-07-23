@@ -25,6 +25,20 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: { open: boolean, o
       // Auto-generate initial from name
       const initial = name.substring(0, 2).toUpperCase()
 
+      if (!navigator.onLine) {
+        const { addToSyncQueue } = await import('@/lib/offline/sync-queue')
+        const { upsertCachedWorkspace } = await import('@/lib/offline/cache-utils')
+        const tempId = crypto.randomUUID()
+
+        await upsertCachedWorkspace({ id: tempId, name, initial, __pendingSync: true })
+        await addToSyncQueue('create_workspace', 'workspace', tempId, { name, initial })
+
+        toast.info("Workspace queued — it will be created when you are back online")
+        setName("")
+        onOpenChange(false)
+        return
+      }
+
       const result = await createWorkspace(name, initial)
 
       if (result.success) {

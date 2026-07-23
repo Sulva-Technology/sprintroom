@@ -34,7 +34,20 @@ import {
   updateTask,
 } from "@/app/actions/task-details";
 import { getTaskDetails } from "@/app/actions/task-fetcher";
+import { assignOwner } from "@/app/actions/tasks";
 import { StartFocusButton } from "@/components/focus/start-focus-button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function initialsOf(name?: string | null) {
+  if (!name) return "?";
+  return name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase();
+}
 
 export function TaskDetailDrawer({
   taskId,
@@ -63,43 +76,54 @@ export function TaskDetailDrawer({
   const [desc, setDesc] = useState("");
   const [savingDesc, setSavingDesc] = useState(false);
 
+  // Assignment
+  const [assigning, setAssigning] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
+
+    const loadFromCache = async () => {
+      const { getCachedTaskDetails } = await import('@/lib/offline/cache-utils');
+      const cached = await getCachedTaskDetails(taskId);
+      if (!cached?.task) return false;
+
+      setData({ task: cached.task, checklist: cached.checklist, comments: cached.comments });
+      setDesc(cached.task.description || "");
+      return true;
+    };
+
     if (!navigator.onLine) {
-      // Try to load from IDB
       try {
-        const { getDB } = await import('@/lib/offline/db');
-        const db = await getDB();
-        if (db) {
-          const cached = await db.get('cached_tasks', taskId);
-          if (cached) {
-            setData(cached.value);
-            setDesc(cached.value.task.description || "");
-            setLoading(false);
-            return;
-          }
+        if (await loadFromCache()) {
+          setLoading(false);
+          return;
         }
-      } catch(e) {
-        console.error(e)
+      } catch (e) {
+        console.error(e);
       }
     }
 
-    const res = await getTaskDetails(taskId);
-    if (!res.error) {
-      setData(res);
-      setDesc(res.task.description || "");
+    try {
+      const res = await getTaskDetails(taskId);
+      if (!res.error) {
+        setData(res);
+        setDesc(res.task?.description || "");
 
-      // Save to IDB for offline
+        // Store the full drawer payload under its own key. Writing it into
+        // cached_tasks would corrupt the flat task rows the board reads.
+        const { cacheTaskDetails } = await import('@/lib/offline/cache-utils');
+        await cacheTaskDetails(taskId, res).catch(() => {});
+      }
+    } catch (e) {
+      // The network dropped between the online check and the request; fall back
+      // to whatever was cached rather than leaving the drawer empty.
       try {
-        const { getDB } = await import('@/lib/offline/db');
-        const db = await getDB();
-        if (db) {
-          await db.put('cached_tasks', { id: taskId, value: res, project_id: projectId });
-        }
-      } catch(e) {}
+        await loadFromCache();
+      } catch {}
     }
+
     setLoading(false);
-  }, [projectId, taskId]);
+  }, [taskId]);
 
   useEffect(() => {
     if (open && taskId) {
@@ -112,6 +136,16 @@ export function TaskDetailDrawer({
   }, [fetchData, open, taskId]);
 
   if (!open) return null;
+
+  const handleAssign = async (memberId: string) => {
+    setAssigning(true);
+    try {
+      await assignOwner(taskId, memberId, projectId);
+      await fetchData();
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const handleAddChecklist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,17 +246,57 @@ export function TaskDetailDrawer({
                     {data.task.priority} Priority
                   </span>
 
-                  {data.task.owner_id ? (
-                    <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700 ml-2">
-                      <User className="w-4 h-4 text-slate-400" />
-                      Assigned
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-sm font-medium text-amber-600 ml-2">
-                      <User className="w-4 h-4 text-amber-500" />
-                      Unassigned
-                    </div>
-                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      disabled={assigning}
+                      render={
+                        <button className="flex items-center gap-1.5 text-sm font-medium ml-2 rounded-md px-2 py-1 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-60" />
+                      }
+                    >
+                      {assigning ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                      ) : data.owner ? (
+                        <>
+                          <Avatar className="w-5 h-5">
+                            <AvatarImage src={data.owner.avatar_url || undefined} />
+                            <AvatarFallback className="text-[8px] bg-slate-100 text-slate-600">
+                              {initialsOf(data.owner.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-slate-700">{data.owner.full_name}</span>
+                        </>
+                      ) : (
+                        <>
+                          <User className="w-4 h-4 text-amber-500" />
+                          <span className="text-amber-600">Unassigned</span>
+                        </>
+                      )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-52 rounded-xl">
+                      {(data.members || []).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-slate-400">No workspace members</div>
+                      ) : (
+                        data.members.map((m: any) => (
+                          <DropdownMenuItem
+                            key={m.id}
+                            onClick={() => handleAssign(m.id)}
+                            className="rounded-lg cursor-pointer gap-2"
+                          >
+                            <Avatar className="w-5 h-5">
+                              <AvatarImage src={m.avatar_url || undefined} />
+                              <AvatarFallback className="text-[8px] bg-slate-100 text-slate-600">
+                                {initialsOf(m.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm truncate">{m.full_name}</span>
+                            {m.id === data.task.owner_id && (
+                              <CheckCircle2 className="w-3.5 h-3.5 ml-auto text-primary" />
+                            )}
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   {data.task.deadline && (
                     <div className="text-sm font-medium text-slate-600 ml-2">

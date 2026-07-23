@@ -3,6 +3,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ChevronDown, LogOut, Settings, UserCircle } from 'lucide-react'
+import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
 
 export function UserMenu({ user, profile }: { user: any, profile: any }) {
@@ -41,11 +42,17 @@ export function UserMenu({ user, profile }: { user: any, profile: any }) {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <div className="p-1">
-          <DropdownMenuItem className="rounded-lg h-9 px-3 cursor-pointer">
+          <DropdownMenuItem
+            className="rounded-lg h-9 px-3 cursor-pointer"
+            render={<Link href="/dashboard/settings" />}
+          >
             <UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />
             <span className="text-sm">My Profile</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="rounded-lg h-9 px-3 cursor-pointer">
+          <DropdownMenuItem
+            className="rounded-lg h-9 px-3 cursor-pointer"
+            render={<Link href="/dashboard/settings" />}
+          >
             <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
             <span className="text-sm">Account Settings</span>
           </DropdownMenuItem>
@@ -57,9 +64,19 @@ export function UserMenu({ user, profile }: { user: any, profile: any }) {
               try {
                 const { clearOfflineData } = await import('@/lib/offline/db');
                 await clearOfflineData();
+                // Also purge the service-worker Cache Storage, which holds
+                // authenticated pages/RSC payloads. Without this they persist
+                // on the device after logout (a problem on shared machines).
+                if (typeof caches !== 'undefined') {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map((key) => caches.delete(key)));
+                }
+                // Reset the route-warm throttle so the next sign-in refills the
+                // caches we just emptied instead of waiting out the interval.
+                localStorage.removeItem('sprintroom:last-route-warm');
               } catch(e) {}
               await logout();
-            }} 
+            }}
             className="rounded-lg h-9 px-3 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
           >
             <LogOut className="mr-2 h-4 w-4" />

@@ -36,9 +36,16 @@ export function ProjectCard({ project }: { project: any }) {
       {/* Top */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1 pr-4">
-          <Link href={`/dashboard/projects/${project.id}`}>
-            <h3 className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors inline-block">{project.name}</h3>
-          </Link>
+          {/* A project created offline has only a temporary client id, so its
+              board does not exist on the server or in any cache yet. Linking to
+              it would dead-end; it becomes a link once the create syncs. */}
+          {project.__pendingSync ? (
+            <h3 className="text-xl font-bold tracking-tight text-foreground inline-block">{project.name}</h3>
+          ) : (
+            <Link href={`/dashboard/projects/${project.id}`}>
+              <h3 className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors inline-block">{project.name}</h3>
+            </Link>
+          )}
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description || 'No description provided.'}</p>
         </div>
         <div className={cn("shrink-0 text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border", h.class)}>
@@ -94,9 +101,15 @@ export function ProjectCard({ project }: { project: any }) {
             Active {formatDistanceToNow(new Date(lastActivity), { addSuffix: true })}
           </span>
         </div>
-        <Button size="sm" variant="ghost" render={<Link href={`/dashboard/projects/${project.id}`} />} className="rounded-full hover:bg-slate-50 text-slate-600 font-semibold px-3 h-8">
-            Open <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-        </Button>
+        {project.__pendingSync ? (
+          <span className="text-xs font-semibold text-amber-600 px-3 h-8 flex items-center">
+            Pending sync
+          </span>
+        ) : (
+          <Button size="sm" variant="ghost" render={<Link href={`/dashboard/projects/${project.id}`} />} className="rounded-full hover:bg-slate-50 text-slate-600 font-semibold px-3 h-8">
+              Open <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+          </Button>
+        )}
       </div>
     </div>
   )

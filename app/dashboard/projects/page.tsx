@@ -1,9 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ProjectCard } from './project-card'
 import { CreateProjectDialog } from './create-project-dialog'
+import { ProjectsList } from './projects-list'
+import { canEditWorkspace } from '@/app/actions/roles'
+import { CacheWriter } from '@/components/offline/cache-writer'
+
+function initialsOf(name?: string | null) {
+  if (!name) return '?'
+  return name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+}
 
 export default async function ProjectsPage({ searchParams }: { searchParams?: Promise<{ new?: string }> }) {
   const supabase = await createClient()
@@ -32,6 +38,29 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
 
   const projects = projectsRaw || []
 
+  // Viewers can browse projects but not create them.
+  const canEdit = await canEditWorkspace()
+
+  // Fetch real workspace members (with profiles) so project cards show who's on
+  // each project instead of an empty avatar stack.
+  const { data: memberRows } = workspaceIds.length > 0
+    ? await supabase.from('workspace_members').select('workspace_id, user_id').in('workspace_id', workspaceIds)
+    : { data: [] }
+
+  const memberUserIds = Array.from(new Set((memberRows || []).map((m: any) => m.user_id)))
+  const { data: memberProfiles } = memberUserIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', memberUserIds)
+    : { data: [] }
+
+  const profileById = new Map((memberProfiles || []).map((p: any) => [p.id, p]))
+  const membersByWorkspace = new Map<string, any[]>()
+  for (const m of memberRows || []) {
+    const arr = membersByWorkspace.get(m.workspace_id) || []
+    const p: any = profileById.get(m.user_id)
+    arr.push({ init: initialsOf(p?.full_name), full_name: p?.full_name || null, avatar_url: p?.avatar_url || null })
+    membersByWorkspace.set(m.workspace_id, arr)
+  }
+
   // Decorate projects with stats
   const enrichedProjects = projects.map(p => {
     const tasks = p.tasks || []
@@ -49,9 +78,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
     // The `focus_sessions(count)` might do a left join count, let's treat it safely
     const completedSessions = p.focus_sessions?.[0]?.count || 0
 
-    // Fake last activity and members for the ui demonstration
     const lastActivity = p.updated_at
-    const members: any[] = []
+    const members = (membersByWorkspace.get(p.workspace_id) || []).slice(0, 4)
 
     return {
       ...p,
@@ -63,6 +91,10 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-12">
+      {/* Caching the full project list here (not just the layout's 5 recents)
+          is what lets the route warmer pre-cache every board for offline use. */}
+      <CacheWriter projects={projects} />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
@@ -71,33 +103,18 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
             Track task movement, blockers, and focus effort across your workspace.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          <div className="relative w-full sm:w-64">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-             <Input placeholder="Search projects..." className="pl-9 bg-white shadow-sm rounded-xl h-10 w-full focus-visible:ring-primary/20" />
-          </div>
-          <CreateProjectDialog defaultOpen={shouldOpenCreateDialog} />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {canEdit && <CreateProjectDialog defaultOpen={shouldOpenCreateDialog} />}
         </div>
       </div>
 
-      {enrichedProjects.length === 0 ? (
-        <div className="bg-white border border-border/50 rounded-3xl p-12 shadow-sm text-center max-w-2xl mx-auto mt-12 flex flex-col items-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
-            <Plus className="w-8 h-8 text-slate-400" />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground mb-3">Create your first project.</h2>
-          <p className="text-muted-foreground font-medium mb-8 max-w-md">
-            Projects keep your team’s tasks, focus sessions, blockers, and progress proof in one place.
-          </p>
-          <CreateProjectDialog defaultOpen={shouldOpenCreateDialog} trigger={<Button className="rounded-xl shadow-sm px-6 h-11 text-base">Create project</Button>} />
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {enrichedProjects.map(project => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
-      )}
+      {/* Empty state is rendered by ProjectsList: it derives the real list from
+          the offline cache + pending sync queue, which the server cannot see. */}
+      <ProjectsList
+        projects={enrichedProjects}
+        canEdit={canEdit}
+        shouldOpenCreateDialog={shouldOpenCreateDialog}
+      />
     </div>
   )
 }
