@@ -21,23 +21,27 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: () => JSON.stringify([
-          {
-            title: "Test AI Task",
-            description: "A generated task",
-            reason: "You need this",
-            is_rhythm: false,
-            estimated_pomodoros: 2
-          }
-        ]),
-        }
-      })
-    })
-  }))
+  // Vitest 4 requires constructor mocks to be actual functions/classes.
+  GoogleGenerativeAI: class {
+    getGenerativeModel() {
+      return {
+        generateContent: async () => ({
+          response: {
+            text: () =>
+              JSON.stringify([
+                {
+                  title: 'Test AI Task',
+                  description: 'A generated task',
+                  reason: 'You need this',
+                  is_rhythm: false,
+                  estimated_pomodoros: 2,
+                },
+              ]),
+          },
+        }),
+      }
+    }
+  },
 }))
 
 describe('AI Suggestions', () => {

@@ -62,8 +62,21 @@ export default async function SettingsPage() {
           <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
           <CardDescription>Irreversible actions.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button variant="destructive" className="rounded-xl shadow-sm">Delete Account</Button>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Deleting your account permanently removes your profile, tasks, and focus
+            history. This cannot be undone. To request deletion, email us and we will
+            process it within 30 days.
+          </p>
+          <Button
+            variant="destructive"
+            className="rounded-xl shadow-sm"
+            render={
+              <a href={`mailto:support@sulvatech.com?subject=${encodeURIComponent('Account deletion request')}&body=${encodeURIComponent(`Please delete the account for ${user?.email ?? ''}.`)}`} />
+            }
+          >
+            Request Account Deletion
+          </Button>
         </CardContent>
       </Card>
     </div>

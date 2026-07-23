@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
+import { getWorkspaceRole } from './roles'
 import { z } from 'zod'
 
 const createProjectSchema = z.object({
@@ -19,23 +21,37 @@ export async function createProject(data: any) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: { message: 'Not authenticated', details: 'You must be logged in to create a project.' } }
 
-  // 1. Get the user's first workspace (defaulting to the first one they belong to)
-  const { data: membership, error: membershipError } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
+  // 1. Resolve the ACTIVE workspace (falling back to any membership). Previously
+  // this always used the user's first workspace, so projects could land in the
+  // wrong one when multiple workspaces existed.
+  const cookieStore = await cookies()
+  let workspaceId = cookieStore.get('active_workspace_id')?.value
 
-  if (membershipError || !membership) {
+  if (!workspaceId) {
+    const { data: membership } = await supabase
+      .from('workspace_members')
+      .select('workspace_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+    workspaceId = membership?.workspace_id
+  }
+
+  if (!workspaceId) {
     return { success: false, error: { message: 'No workspace found', details: 'You must be part of a workspace to create a project.' } }
   }
 
-  // 2. Create the project
+  // 2. Viewers may not create projects.
+  const role = await getWorkspaceRole(workspaceId)
+  if (!role || role === 'viewer') {
+    return { success: false, error: { message: 'Permission denied', details: 'You do not have permission to create projects in this workspace.' } }
+  }
+
+  // 3. Create the project
   const { data: project, error } = await supabase
     .from('projects')
     .insert({
-      workspace_id: membership.workspace_id,
+      workspace_id: workspaceId,
       name: validated.data.name,
       description: validated.data.description,
       created_by: user.id

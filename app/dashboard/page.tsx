@@ -10,6 +10,7 @@ import { BlockersPanel } from '@/components/dashboard/blockers-panel'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { format } from 'date-fns'
 import { StartFocusButton } from '@/components/dashboard/start-focus-button'
+import { getActiveWorkspaceId } from '@/app/actions/workspaces'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -23,23 +24,27 @@ export default async function DashboardPage() {
   const tomorrowStart = new Date(todayStart)
   tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
-  const [membershipsData, projectsData, tasksData, focusSessionsData, profilesData] = await Promise.all([
-    supabase
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id),
-    // Project fetching depends on workspaceIds, so we'll fetch it conditionally later
-    Promise.resolve({ data: [] }), // Placeholder for projects
-    Promise.resolve({ data: [] }), // Placeholder for tasks
-    Promise.resolve({ data: [] }), // Placeholder for focusSessions
-    Promise.resolve({ data: [] }), // Placeholder for profiles
-  ]);
+  // Resolve the active workspace from the cookie, falling back to the user's
+  // first membership. The dashboard is scoped to a single workspace so it stays
+  // consistent with the workspace switcher.
+  const { data: membershipsRaw } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
 
-  const memberships = membershipsData?.data || []
-  const workspaceIds = memberships.map((membership) => membership.workspace_id) || []
+  const membershipIds = (membershipsRaw || []).map((membership) => membership.workspace_id)
+  const cookieWorkspaceId = await getActiveWorkspaceId()
+  const activeWorkspaceId = cookieWorkspaceId && membershipIds.includes(cookieWorkspaceId)
+    ? cookieWorkspaceId
+    : membershipIds[0]
 
-  const { data: projectsRaw } = workspaceIds.length > 0
-    ? await supabase.from('projects').select('id').in('workspace_id', workspaceIds)
+  const { data: activeWorkspace } = activeWorkspaceId
+    ? await supabase.from('workspaces').select('name').eq('id', activeWorkspaceId).single()
+    : { data: null }
+  const activeWorkspaceName = activeWorkspace?.name ?? 'Workspace'
+
+  const { data: projectsRaw } = activeWorkspaceId
+    ? await supabase.from('projects').select('id').eq('workspace_id', activeWorkspaceId)
     : { data: [] }
 
   const projects = projectsRaw || []
@@ -55,32 +60,28 @@ export default async function DashboardPage() {
   const tasks = tasksRaw || []
   const taskIds = tasks.map((task) => task.id)
 
-  const [focusSessionsRaw, profilesRaw] = await Promise.all([
-    taskIds.length > 0
-      ? supabase
-          .from('focus_sessions')
-          .select('id, user_id, task_id, status, started_at, duration_minutes, progress_note, distractions_count')
-          .in('task_id', taskIds)
-          .gte('started_at', todayStart.toISOString())
-          .then(res => res.data)
-      : Promise.resolve([]),
-    (() => {
-      const memberIds = Array.from(new Set([
-        user.id,
-        ...tasks.map((task) => task.owner_id).filter(Boolean),
-        ...focusSessionsData?.data?.map((session: any) => session.user_id).filter(Boolean),
-      ]))
-      return memberIds.length > 0
-        ? supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url, email')
-            .in('id', memberIds)
-            .then(res => res.data)
-        : Promise.resolve([]);
-    })(),
-  ]);
+  const { data: focusSessionsRaw } = taskIds.length > 0
+    ? await supabase
+        .from('focus_sessions')
+        .select('id, user_id, task_id, status, started_at, duration_minutes, progress_note, distractions_count')
+        .in('task_id', taskIds)
+        .gte('started_at', todayStart.toISOString())
+    : { data: [] }
 
   const focusSessions = focusSessionsRaw || []
+
+  const memberIds = Array.from(new Set([
+    user.id,
+    ...tasks.map((task) => task.owner_id).filter(Boolean),
+    ...focusSessions.map((session) => session.user_id).filter(Boolean),
+  ]))
+
+  const { data: profilesRaw } = memberIds.length > 0
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, email')
+        .in('id', memberIds)
+    : { data: [] }
   const profilesById = new Map((profilesRaw || []).map((profile: any) => [profile.id, profile]))
   const tasksById = new Map(tasks.map((task) => [task.id, task]))
 
@@ -139,7 +140,7 @@ export default async function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-1">Today&apos;s Execution</h1>
-          <p className="text-muted-foreground font-medium text-sm md:text-base">{todayStr} · My Workspace</p>
+          <p className="text-muted-foreground font-medium text-sm md:text-base">{todayStr} · {activeWorkspaceName}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="rounded-full shadow-sm bg-white hover:bg-slate-50 border-border h-9">
@@ -196,7 +197,7 @@ export default async function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Focus Sessions" value={stats.completedSessions} icon={CheckCircle2} trend="↑ 12%" trendUp={true} bgAccentClass="bg-emerald-100" accentClass="text-emerald-600" />
+        <StatCard title="Focus Sessions" value={stats.completedSessions} icon={CheckCircle2} bgAccentClass="bg-emerald-100" accentClass="text-emerald-600" />
         <StatCard title="Tasks Moved" value={stats.tasksMoved} icon={ArrowRight} bgAccentClass="bg-blue-100" accentClass="text-blue-600" />
         <StatCard title="Blockers" value={stats.blockers} icon={ShieldAlert} trend={stats.blockers > 0 ? "Needs Review" : ""} trendUp={false} bgAccentClass={stats.blockers > 0 ? "bg-red-100" : "bg-slate-100"} accentClass={stats.blockers > 0 ? "text-red-600" : "text-slate-400"} />
         <StatCard title="Due Today" value={stats.dueToday} icon={Zap} bgAccentClass="bg-amber-100" accentClass="text-amber-600" />

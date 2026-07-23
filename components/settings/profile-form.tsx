@@ -44,7 +44,7 @@ export function ProfileForm({ profile }: { profile: any }) {
       setAvatarUrl(publicUrl)
       
       // Auto-save the new avatar URL
-      const res = await updateProfile(profile.id, { avatar_url: publicUrl })
+      const res = await updateProfile({ avatar_url: publicUrl })
       if (res.error) throw new Error(res.error)
       
       toast.success('Avatar updated successfully')
@@ -60,7 +60,7 @@ export function ProfileForm({ profile }: { profile: any }) {
     setLoading(true)
     
     try {
-      const res = await updateProfile(profile.id, { full_name: fullName })
+      const res = await updateProfile({ full_name: fullName })
       if (res.error) throw new Error(res.error)
       toast.success('Profile updated successfully')
     } catch (error: any) {

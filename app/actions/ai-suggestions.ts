@@ -3,9 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// We assume the API key is in environment variables
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-
 export async function getTaskSuggestions() {
   try {
     const supabase = await createClient()
@@ -16,11 +13,13 @@ export async function getTaskSuggestions() {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return { 
-        success: false, 
-        error: 'Google Gemini API key not configured. Please add GEMINI_API_KEY to your environment.' 
+      return {
+        success: false,
+        error: 'Google Gemini API key not configured. Please add GEMINI_API_KEY to your environment.'
       }
     }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
     // 1. Gather Context: Recent tasks and focus session history
     const [

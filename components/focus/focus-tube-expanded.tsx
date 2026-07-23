@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Minimize2, X, AlertTriangle, ExternalLink, ShieldAlert, CheckCircle2, Bell, BellOff } from 'lucide-react'
+import { Minimize2, X, AlertTriangle, ExternalLink, ShieldAlert, CheckCircle2, Bell, BellOff, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { SoundToggle } from './sound-toggle'
@@ -31,6 +31,8 @@ interface FocusTubeExpandedProps {
   onPopout?: () => void
   isPoppedOut?: boolean
   remainingMinutes: number // New prop for blinking text
+  isPaused?: boolean
+  onTogglePause?: () => void
 }
 
 export function FocusTubeExpanded({
@@ -54,7 +56,9 @@ export function FocusTubeExpanded({
   isPopoutSupported = false,
   onPopout,
   isPoppedOut = false,
-  remainingMinutes // New prop
+  remainingMinutes, // New prop
+  isPaused = false,
+  onTogglePause
 }: FocusTubeExpandedProps) {
   const [note, setNote] = useState('')
 
@@ -76,6 +80,18 @@ export function FocusTubeExpanded({
       {/* Header */}
       <div className="flex items-center justify-between px-1 py-1 border-b border-slate-100">
         <div className="flex items-center gap-0.5">
+          {!isComplete && onTogglePause && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onTogglePause}
+              className={cn("rounded-full w-7 h-7 p-0 hover:bg-slate-100/50", isPaused ? 'text-amber-600' : 'text-slate-500')}
+              aria-label={isPaused ? "Resume" : "Pause"}
+              title={isPaused ? "Resume" : "Pause"}
+            >
+              {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+            </Button>
+          )}
           <SoundToggle soundEnabled={soundEnabled} toggleSound={toggleSound} />
           {isNotifSupported && toggleNotifications && (
             <Button
@@ -129,7 +145,7 @@ export function FocusTubeExpanded({
                 cx="50" cy="50" r="45"
                 stroke="currentColor"
                 strokeWidth="4" fill="none"
-                className={cn(`transition-all duration-1000 ease-linear ${isComplete ? 'text-emerald-500' : 'text-indigo-500'}`, isWarning && 'text-red-500')}
+                className={cn(`transition-all duration-1000 ease-linear ${isComplete ? 'text-emerald-500' : 'text-indigo-500'}`, isWarning && 'text-red-500', isPaused && 'text-amber-400')}
                 strokeDasharray="282.74"
                 strokeDashoffset={282.74 - (282.74 * progressPercent) / 100}
                 strokeLinecap="round"
@@ -138,10 +154,14 @@ export function FocusTubeExpanded({
            <div className={cn(
              "text-xl font-black font-mono tracking-tighter",
              isComplete ? 'text-emerald-600' : 'text-slate-800',
-             isWarning && 'blink-red text-red-600'
+             isWarning && 'blink-red text-red-600',
+             isPaused && !isComplete && 'text-amber-500'
            )}>
              {isComplete ? '00:00' : formattedTime}
            </div>
+           {isPaused && !isComplete && (
+             <div className="absolute -bottom-0.5 text-[7px] font-bold uppercase tracking-widest text-amber-500">Paused</div>
+           )}
         </div>
 
         {/* Complete State */}

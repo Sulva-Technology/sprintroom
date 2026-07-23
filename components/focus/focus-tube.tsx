@@ -8,7 +8,7 @@ import { useFocusTimer } from '@/hooks/use-focus-timer'
 import { useFocusSound } from '@/hooks/use-focus-sound'
 import { useFocusNotifications } from '@/hooks/use-focus-notifications'
 import { useDocumentPictureInPicture } from '@/hooks/use-document-picture-in-picture'
-import { incrementDistraction, cancelFocusSession, completeFocusSession } from '@/app/actions/focus'
+import { incrementDistraction, cancelFocusSession, completeFocusSession, pauseFocusSession, resumeFocusSession } from '@/app/actions/focus'
 import { addToSyncQueue } from '@/lib/offline/sync-queue'
 import { ExternalLink } from 'lucide-react'
 
@@ -20,8 +20,10 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
   const [session, setSession] = useState<any>(initialSession)
   const [expanded, setExpanded] = useState(false)
   const [distractions, setDistractions] = useState<number>(initialSession?.distractions_count || 0)
+  const [pausedAt, setPausedAt] = useState<string | null>(initialSession?.paused_at ?? null)
+  const [bankedPausedSeconds, setBankedPausedSeconds] = useState<number>(initialSession?.total_paused_seconds ?? 0)
 
-  const { soundEnabled, toggleSound, playSound, stopSound } = useFocusSound()
+  const { soundEnabled, toggleSound, playSound } = useFocusSound()
   const { notificationsEnabled, toggleNotifications, showNotification, isSupported: isNotifSupported } = useFocusNotifications()
   const { isSupported: isPopoutSupported, isOpen: isPoppedOut, openPopout, closePopout, popoutWindow } = useDocumentPictureInPicture()
 
@@ -29,12 +31,15 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
     remainingSeconds,
     progressPercent,
     isComplete,
+    isPaused,
     formattedTime,
     hasOneMinuteWarningPassed
   } = useFocusTimer({
     startedAt: session?.started_at,
     durationMinutes: session?.duration_minutes || 25,
-    status: session?.status || 'cancelled'
+    status: session?.status || 'cancelled',
+    pausedAt,
+    totalPausedSeconds: bankedPausedSeconds
   })
 
   const remainingMinutes = Math.ceil(remainingSeconds / 60); // Calculate remaining minutes
@@ -64,22 +69,6 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
     }
   }, [isComplete, hasOneMinuteWarningPassed, playSound, showNotification, expanded, isPoppedOut, session])
 
-  // Tick sound effect
-  useEffect(() => {
-    if (!session || session.status !== 'active' || isComplete) {
-      stopSound('tick');
-      return;
-    }
-
-    const tickInterval = setInterval(() => {
-      playSound('tick');
-    }, 1000);
-
-    return () => clearInterval(tickInterval);
-  }, [session, isComplete, playSound, stopSound]);
-
-  // Sound triggers
-
   const handleAddDistraction = async () => {
     setDistractions(prev => prev + 1)
     if (!navigator.onLine) {
@@ -102,6 +91,20 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
 
     await cancelFocusSession(session.id)
     setSession(null)
+  }
+
+  const handleTogglePause = () => {
+    if (isPaused) {
+      const added = pausedAt
+        ? Math.max(0, Math.round((Date.now() - new Date(pausedAt).getTime()) / 1000))
+        : 0
+      setBankedPausedSeconds((prev) => prev + added)
+      setPausedAt(null)
+      resumeFocusSession(session.id)
+    } else {
+      setPausedAt(new Date().toISOString())
+      pauseFocusSession(session.id)
+    }
   }
 
   const handleEndEarly = () => {
@@ -148,7 +151,9 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
     isPopoutSupported,
     onPopout: openPopout,
     isPoppedOut,
-    remainingMinutes // Pass remainingMinutes
+    remainingMinutes, // Pass remainingMinutes
+    isPaused,
+    onTogglePause: handleTogglePause
   }
 
   return (

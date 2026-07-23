@@ -10,7 +10,9 @@ const createRhythmSchema = z.object({
   workspace_id: z.string().uuid().optional().nullable(),
   tasks: z.array(z.object({
     title: z.string().min(1),
-    day_of_week: z.number().min(0).max(6)
+    day_of_week: z.number().min(0).max(6),
+    // Optional daily reminder time, 'HH:MM'.
+    reminder_time: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable()
   }))
 })
 
@@ -21,7 +23,7 @@ export async function getRhythms(workspaceId?: string) {
 
   let query = supabase
     .from('weekly_rhythm_templates')
-    .select('*, weekly_rhythm_tasks(*)')
+    .select('*, weekly_rhythm_tasks(*, task_reminders(reminder_time, is_enabled))')
     .eq('user_id', user.id)
 
   if (workspaceId) {
@@ -74,12 +76,85 @@ export async function saveRhythmTemplate(data: any) {
     day_of_week: t.day_of_week
   }))
 
-  const { error: tasksError } = await supabase.from('weekly_rhythm_tasks').insert(tasksToInsert)
+  const { data: insertedTasks, error: tasksError } = await supabase
+    .from('weekly_rhythm_tasks')
+    .insert(tasksToInsert)
+    .select('id, title, day_of_week')
 
   if (tasksError) return { success: false, error: tasksError.message }
 
+  // Persist per-task reminders. weekly_rhythm_tasks are deleted+reinserted on
+  // every save, and task_reminders cascade on rhythm_task_id, so we simply
+  // recreate them here against the freshly inserted task ids.
+  const idByKey = new Map((insertedTasks || []).map((t: any) => [`${t.title}::${t.day_of_week}`, t.id]))
+  const remindersToInsert = validated.data.tasks
+    .filter(t => t.reminder_time)
+    .map(t => ({
+      user_id: user.id,
+      rhythm_task_id: idByKey.get(`${t.title}::${t.day_of_week}`),
+      type: 'alarm',
+      reminder_time: t.reminder_time,
+      is_enabled: true
+    }))
+    .filter(r => r.rhythm_task_id)
+
+  if (remindersToInsert.length > 0) {
+    const { error: remindersError } = await supabase.from('task_reminders').insert(remindersToInsert)
+    // Don't fail the whole save if reminders can't be written.
+    if (remindersError) console.error('Error saving rhythm reminders:', remindersError)
+  }
+
   revalidatePath('/dashboard/rhythms')
   return { success: true, template }
+}
+
+/**
+ * Reminders due today for the current user: rhythm tasks scheduled for today's
+ * weekday that have an enabled reminder and haven't been completed yet.
+ */
+export async function getTodaysReminders() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const dayOfWeek = new Date().getDay() // 0=Sun..6=Sat
+
+  const { data, error } = await supabase
+    .from('task_reminders')
+    .select('id, reminder_time, rhythm_task_id, weekly_rhythm_tasks!inner(title, day_of_week, weekly_rhythm_templates!inner(name))')
+    .eq('user_id', user.id)
+    .eq('is_enabled', true)
+    .eq('weekly_rhythm_tasks.day_of_week', dayOfWeek)
+
+  if (error) {
+    console.error('Error fetching reminders:', error)
+    return []
+  }
+
+  const reminders = data || []
+  if (reminders.length === 0) return []
+
+  // Drop reminders for tasks already completed today.
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const taskIds = reminders.map((r: any) => r.rhythm_task_id)
+  const { data: logs } = await supabase
+    .from('weekly_rhythm_logs')
+    .select('rhythm_task_id')
+    .eq('user_id', user.id)
+    .eq('completed_at', todayStr)
+    .in('rhythm_task_id', taskIds)
+
+  const completed = new Set((logs || []).map((l: any) => l.rhythm_task_id))
+
+  return reminders
+    .filter((r: any) => !completed.has(r.rhythm_task_id))
+    .map((r: any) => ({
+      id: r.id,
+      rhythmTaskId: r.rhythm_task_id,
+      time: (r.reminder_time || '').slice(0, 5), // 'HH:MM'
+      title: r.weekly_rhythm_tasks?.title || 'Rhythm task',
+      rhythmName: r.weekly_rhythm_tasks?.weekly_rhythm_templates?.name || null,
+    }))
 }
 
 export async function toggleRhythmCompletion(rhythmTaskId: string, date: string, note?: string) {

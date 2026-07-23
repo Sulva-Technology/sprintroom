@@ -26,6 +26,12 @@ export async function addToSyncQueue(
 
   await db.put('sync_queue', item)
 
+  // Let any mounted UI (e.g. the board) re-derive from the queue immediately,
+  // even while offline when no sync will run.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('sprintroom-queue-updated'))
+  }
+
   // Try to register background sync if supported
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     try {

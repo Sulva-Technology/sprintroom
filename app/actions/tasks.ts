@@ -138,7 +138,7 @@ export async function createTask(data: any) {
 
   if (!user) return { success: false, error: { message: 'Not authenticated' } }
 
-  const { error } = await supabase.from('tasks').insert({
+  const { data: inserted, error } = await supabase.from('tasks').insert({
     project_id: validated.data.project_id,
     title: validated.data.title,
     description: validated.data.description,
@@ -148,7 +148,7 @@ export async function createTask(data: any) {
     deadline: validated.data.deadline ? new Date(validated.data.deadline).toISOString() : null,
     estimate_pomodoros: validated.data.estimate_pomodoros || 0,
     user_id: user.id
-  })
+  }).select('id').single()
 
   if (error) {
     console.error('Supabase error:', error);
@@ -158,7 +158,7 @@ export async function createTask(data: any) {
   revalidatePath(`/dashboard/projects/${validated.data.project_id}`)
   revalidatePath('/dashboard/projects')
   revalidatePath('/dashboard')
-  return { success: true }
+  return { success: true, id: inserted?.id as string | undefined }
 }
 
 const deleteTaskSchema = z.object({

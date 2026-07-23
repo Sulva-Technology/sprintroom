@@ -12,9 +12,12 @@ export function useNetworkStatus() {
     if (typeof window === 'undefined') return
 
     const handleOnline = () => {
-      // When browser says online, verify with a ping to be sure
-      fetch('/favicon.png', { method: 'HEAD', cache: 'no-store' })
-        .then(() => setIsOnline(true))
+      // Verify with a real network round-trip. The cache-busting query stops the
+      // service worker from answering a "cache-first" asset from cache (which would
+      // report online while actually offline), and we must check res.ok because the
+      // SW returns a synthetic 503 Response rather than rejecting when offline.
+      fetch(`/favicon.png?_=${Date.now()}`, { method: 'HEAD', cache: 'no-store' })
+        .then((res) => setIsOnline(res.ok))
         .catch(() => setIsOnline(false))
     }
     

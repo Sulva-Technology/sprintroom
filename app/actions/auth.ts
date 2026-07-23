@@ -115,29 +115,21 @@ export async function signup(formData: FormData) {
   return { success: true }
 }
 
-export async function resetPassword(formData: FormData) {
+export async function resetPassword(formData: FormData): Promise<{ success?: boolean; error?: string }> {
   const email = formData.get('email') as string
   const supabase = await createClient()
   const requestHeaders = await headers()
   const origin = requestHeaders.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
-  // First check if the user exists
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email)
-    .single()
-
-  if (!profile) {
-    return { error: 'No account found with this email address.' }
-  }
-
+  // Do not reveal whether an account exists for this email (avoids account
+  // enumeration). Always report success; Supabase silently no-ops for
+  // addresses that have no account.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/callback?next=/update-password`,
   })
 
   if (error) {
-    return { error: error.message }
+    console.error('Password reset error:', error)
   }
 
   return { success: true }

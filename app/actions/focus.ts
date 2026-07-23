@@ -96,6 +96,60 @@ export async function startFocusSession(taskId: string, projectId: string) {
   redirect(`/focus/${data.id}`)
 }
 
+export async function pauseFocusSession(sessionId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const { data: session } = await supabase
+    .from('focus_sessions')
+    .select('status, paused_at')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session || session.status !== 'active' || session.paused_at) {
+    return { success: false, error: 'Session is not running' }
+  }
+
+  const { error } = await supabase
+    .from('focus_sessions')
+    .update({ paused_at: new Date().toISOString() })
+    .eq('id', sessionId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function resumeFocusSession(sessionId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const { data: session } = await supabase
+    .from('focus_sessions')
+    .select('status, paused_at, total_paused_seconds')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session || !session.paused_at) {
+    return { success: false, error: 'Session is not paused' }
+  }
+
+  const pausedMs = Date.now() - new Date(session.paused_at).getTime()
+  const addSeconds = Math.max(0, Math.round(pausedMs / 1000))
+
+  const { error } = await supabase
+    .from('focus_sessions')
+    .update({
+      paused_at: null,
+      total_paused_seconds: (session.total_paused_seconds || 0) + addSeconds,
+    })
+    .eq('id', sessionId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
 export async function incrementDistraction(sessionId: string) {
   const supabase = await createClient()
   const { data: session } = await supabase.from('focus_sessions').select('distractions_count, task_id').eq('id', sessionId).single()
@@ -117,12 +171,20 @@ export async function incrementDistraction(sessionId: string) {
   }
 }
 
-export async function cancelFocusSession(sessionId: string) {
+/**
+ * Core cancellation logic. Idempotent and non-redirecting — safe for offline sync.
+ */
+export async function cancelFocusSessionCore(sessionId: string) {
   const supabase = await createClient()
   const { data: session } = await supabase.from('focus_sessions').select('*, tasks(project_id)').eq('id', sessionId).single()
 
-  if (!session) return { error: 'Session not found' }
-  const projectId = (session.tasks as any)?.project_id
+  if (!session) return { success: false, error: 'Session not found', projectId: null as string | null }
+  const projectId = (session.tasks as any)?.project_id || session.project_id || null
+
+  // Only an active session can be cancelled; otherwise treat as already handled.
+  if (session.status !== 'active') {
+    return { success: true, projectId }
+  }
 
   await supabase.from('focus_sessions').update({
     status: 'cancelled',
@@ -139,17 +201,32 @@ export async function cancelFocusSession(sessionId: string) {
   })
 
   if (projectId) revalidatePath(`/dashboard/projects/${projectId}`)
-  return redirect(projectId ? `/dashboard/projects/${projectId}` : '/dashboard')
+  return { success: true, projectId }
 }
 
-export async function completeFocusSession(sessionId: string, progressNote: string, isMeaningful: boolean, distractions: number) {
+export async function cancelFocusSession(sessionId: string) {
+  const result = await cancelFocusSessionCore(sessionId)
+  return redirect(result.projectId ? `/dashboard/projects/${result.projectId}` : '/dashboard')
+}
+
+/**
+ * Core completion logic. Idempotent (a second call on an already-completed
+ * session is a no-op) and never redirects, so it is safe to call from the
+ * offline sync engine as well as from redirecting form actions.
+ */
+export async function completeFocusSessionCore(sessionId: string, progressNote: string, isMeaningful: boolean, distractions: number) {
   const supabase = await createClient()
 
   const { data: session } = await supabase.from('focus_sessions').select('*, tasks(*)').eq('id', sessionId).single()
-  if (!session) return { error: 'Session not found' }
+  if (!session) return { success: false, error: 'Session not found', projectId: null as string | null }
 
   const task = session.tasks as any
-  const projectId = task?.project_id || session.project_id
+  const projectId = task?.project_id || session.project_id || null
+
+  // Already completed — don't run the side effects (pomodoro count) again.
+  if (session.status === 'completed') {
+    return { success: true, projectId }
+  }
 
   await supabase.from('focus_sessions').update({
     status: 'completed',
@@ -159,18 +236,12 @@ export async function completeFocusSession(sessionId: string, progressNote: stri
     distractions_count: distractions
   }).eq('id', sessionId)
 
-  // Add pomodoro to task if it exists
-  if (session.task_id && task) {
-    const newPomodoros = (task.completed_pomodoros || 0) + 1
-    let nextStatus = task.status
-    if (task.status === 'backlog' || task.status === 'today') {
-       nextStatus = 'doing'
-    }
-
-    await supabase.from('tasks').update({
-      completed_pomodoros: newPomodoros,
-      status: nextStatus
-    }).eq('id', session.task_id)
+  // Move a freshly-started task into "doing". NOTE: completed_pomodoros is
+  // incremented by the DB trigger process_focus_session_completion (migration
+  // 0004) when the session flips to 'completed' — do NOT increment it here or it
+  // double-counts.
+  if (session.task_id && task && (task.status === 'backlog' || task.status === 'today')) {
+    await supabase.from('tasks').update({ status: 'doing' }).eq('id', session.task_id)
   }
 
   await supabase.from('task_activity').insert({
@@ -182,12 +253,15 @@ export async function completeFocusSession(sessionId: string, progressNote: stri
     body: `Completed a focus session. ${progressNote ? 'Note: ' + progressNote : ''}`
   })
 
-  if (projectId) {
-    revalidatePath(`/dashboard/projects/${projectId}`)
-    return redirect(`/dashboard/projects/${projectId}`)
-  }
+  if (projectId) revalidatePath(`/dashboard/projects/${projectId}`)
   revalidatePath('/dashboard')
-  return redirect('/dashboard')
+  return { success: true, projectId }
+}
+
+export async function completeFocusSession(sessionId: string, progressNote: string, isMeaningful: boolean, distractions: number) {
+  const result = await completeFocusSessionCore(sessionId, progressNote, isMeaningful, distractions)
+  if (!result.success) return { error: result.error }
+  return redirect(result.projectId ? `/dashboard/projects/${result.projectId}` : '/dashboard')
 }
 
 export async function markSessionAbandoned(sessionId: string) {

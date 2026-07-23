@@ -3,7 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function inviteTeamMember(workspaceId: string, email: string, role: 'member' | 'owner' = 'member') {
+export async function inviteTeamMember(
+  workspaceId: string,
+  email: string,
+  role: 'viewer' | 'member' | 'admin' | 'owner' = 'member'
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -11,17 +15,22 @@ export async function inviteTeamMember(workspaceId: string, email: string, role:
     return { success: false, error: { message: 'Not authenticated.' } }
   }
 
-  // 1. Verify inviting user is an owner of the workspace
-  const { data: ownerMembership, error: ownerError } = await supabase
+  // 1. Verify the inviting user may manage members (admin or owner).
+  const { data: membership, error: membershipError } = await supabase
     .from('workspace_members')
     .select('role')
     .eq('workspace_id', workspaceId)
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (ownerError || ownerMembership?.role !== 'owner') {
-    console.error('Unauthorized: User not an owner of this workspace', ownerError);
+  const actorRole = membership?.role
+  if (membershipError || (actorRole !== 'owner' && actorRole !== 'admin')) {
     return { success: false, error: { message: 'Unauthorized to invite members to this workspace.' } }
+  }
+
+  // 2. Only owners may grant the owner role (mirrors the DB trigger).
+  if (role === 'owner' && actorRole !== 'owner') {
+    return { success: false, error: { message: 'Only a workspace owner can grant the owner role.' } }
   }
 
   // 2. Find the invited user by email

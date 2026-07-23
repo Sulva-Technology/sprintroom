@@ -40,7 +40,7 @@ export function useFocusNotifications() {
       try {
         new Notification(title, {
           body,
-          icon: '/icon-192x192.png' // Assumes basic PWA icon
+          icon: '/icon-192.png'
         })
       } catch (e) {
         console.warn('Failed to show notification', e)

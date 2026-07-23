@@ -3,12 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-
 export async function getFinancialInsights(workspaceId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !process.env.GEMINI_API_KEY) return null
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
   // 1. Fetch financial summary
   const { data: entries } = await supabase

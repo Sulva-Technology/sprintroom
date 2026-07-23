@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Repeat2, Loader2, Trash2, GripVertical, X, Settings2 } from 'lucide-react'
+import { Plus, Repeat2, Loader2, Trash2, GripVertical, X, Settings2, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -26,6 +26,7 @@ interface RhythmTaskDraft {
   id: string
   title: string
   days: number[] // Now an array
+  reminder_time: string // 'HH:MM' or '' for none
 }
 
 export function RhythmSettingsDialog({ 
@@ -49,33 +50,40 @@ export function RhythmSettingsDialog({
   const [tasks, setTasks] = useState<RhythmTaskDraft[]>(() => {
     if (initialData?.weekly_rhythm_tasks) {
       const grouped = new Map<string, number[]>()
+      const reminderByTitle = new Map<string, string>()
       initialData.weekly_rhythm_tasks.forEach((t: any) => {
         const existing = grouped.get(t.title) || []
         grouped.set(t.title, [...existing, t.day_of_week])
+        const rt = t.task_reminders?.[0]?.reminder_time
+        if (rt && !reminderByTitle.has(t.title)) {
+          reminderByTitle.set(t.title, String(rt).slice(0, 5))
+        }
       })
-      
+
       return Array.from(grouped.entries()).map(([title, days]) => ({
         id: crypto.randomUUID(),
         title,
-        days
+        days,
+        reminder_time: reminderByTitle.get(title) || ''
       }))
     }
-    return [{ id: crypto.randomUUID(), title: '', days: [1] }]
+    return [{ id: crypto.randomUUID(), title: '', days: [1], reminder_time: '' }]
   })
 
   function addTask() {
-    setTasks(prev => [...prev, { id: crypto.randomUUID(), title: '', days: [1] }])
+    setTasks(prev => [...prev, { id: crypto.randomUUID(), title: '', days: [1], reminder_time: '' }])
   }
 
   function removeTask(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
 
-  function updateTask(id: string, field: 'title' | 'days', value: any) {
+  function updateTask(id: string, field: 'title' | 'days' | 'reminder_time', value: any) {
     setTasks(prev => prev.map(t => {
       if (t.id !== id) return t
       if (field === 'title') return { ...t, title: value }
-      
+      if (field === 'reminder_time') return { ...t, reminder_time: value }
+
       // For days, toggle if already exists
       const currentDays = t.days
       const day = value as number
@@ -108,10 +116,14 @@ export function RhythmSettingsDialog({
 
     startTransition(async () => {
       // Flatten multi-day tasks into individual task records for the grid
-      const flattenedTasks: { title: string, day_of_week: number }[] = []
+      const flattenedTasks: { title: string, day_of_week: number, reminder_time?: string | null }[] = []
       validTasks.forEach(vt => {
         vt.days.forEach(day => {
-          flattenedTasks.push({ title: vt.title.trim(), day_of_week: day })
+          flattenedTasks.push({
+            title: vt.title.trim(),
+            day_of_week: day,
+            reminder_time: vt.reminder_time || null
+          })
         })
       })
 
@@ -133,7 +145,7 @@ export function RhythmSettingsDialog({
         if (!initialData) {
           setName('')
           setDescription('')
-          setTasks([{ id: crypto.randomUUID(), title: '', days: [1] }])
+          setTasks([{ id: crypto.randomUUID(), title: '', days: [1], reminder_time: '' }])
         }
         router.refresh()
       } else {
@@ -264,20 +276,41 @@ export function RhythmSettingsDialog({
                     </div>
                     {/* Shortcuts */}
                     <div className="flex justify-between px-1">
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setAllDays(task.id, 'all')}
                         className="text-[9px] font-bold text-primary/60 hover:text-primary"
                       >
                         Everyday
                       </button>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setAllDays(task.id, 'weekdays')}
                         className="text-[9px] font-bold text-muted-foreground hover:text-primary"
                       >
                         Weekdays
                       </button>
+                    </div>
+                    {/* Reminder time */}
+                    <div className="flex items-center gap-1 px-0.5">
+                      <Bell className={cn('w-3 h-3 shrink-0', task.reminder_time ? 'text-primary' : 'text-muted-foreground/50')} />
+                      <input
+                        type="time"
+                        value={task.reminder_time}
+                        onChange={e => updateTask(task.id, 'reminder_time', e.target.value)}
+                        aria-label="Reminder time"
+                        className="h-6 flex-1 min-w-0 rounded-md border border-border/50 bg-white text-[10px] px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      {task.reminder_time && (
+                        <button
+                          type="button"
+                          onClick={() => updateTask(task.id, 'reminder_time', '')}
+                          className="text-muted-foreground/60 hover:text-red-500 shrink-0"
+                          title="Clear reminder"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <button

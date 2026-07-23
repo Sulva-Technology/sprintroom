@@ -1,22 +1,40 @@
 'use client'
 
 import { useState } from 'react'
-import { formatDistanceToNow, isPast } from 'date-fns'
-import { Timer, MessageSquare, AlertCircle } from 'lucide-react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { isPast } from 'date-fns'
+import { Timer, AlertCircle, Loader2 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { StatusMenu } from './status-menu'
 import { TaskDetailDrawer } from '@/components/tasks/task-detail-drawer'
+import { startFocusSession } from '@/app/actions/focus'
 
-export function TaskCard({ task, projectId }: { task: any, projectId: string }) {
+function initialsOf(name?: string | null) {
+  if (!name) return 'U'
+  return name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+}
+
+export function TaskCard({ task, projectId, canEdit = true }: { task: any, projectId: string, canEdit?: boolean }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [focusing, setFocusing] = useState(false)
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done'
-  
-  // Fake owner profile for now
-  const ownerInitials = task.owner_id ? 'U' : '?'
-  
+
+  const owner = task.owner
+  const ownerInitials = owner?.full_name ? initialsOf(owner.full_name) : 'U'
+
   const completedPomodoros = task.completed_pomodoros || 0
+
+  const handleFocus = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFocusing(true)
+    const res = await startFocusSession(task.id, projectId)
+    // On success the action redirects to the focus screen; only reset on error.
+    if (res?.error) {
+      alert(res.error)
+      setFocusing(false)
+    }
+  }
 
   return (
     <>
@@ -35,9 +53,11 @@ export function TaskCard({ task, projectId }: { task: any, projectId: string }) 
             {task.priority === 'high' && <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">High</span>}
             {isOverdue && <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md"><AlertCircle className="w-3 h-3"/> Overdue</span>}
           </div>
-          <div onClick={e => e.stopPropagation()}>
-            <StatusMenu task={task} projectId={projectId} />
-          </div>
+          {canEdit && (
+            <div onClick={e => e.stopPropagation()}>
+              <StatusMenu task={task} projectId={projectId} />
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -54,8 +74,18 @@ export function TaskCard({ task, projectId }: { task: any, projectId: string }) 
         {/* Progress Footer */}
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-3">
-            <Avatar className="w-6 h-6 border bg-slate-100 text-slate-600 font-bold outline-1 outline-offset-1 outline-transparent group-hover:outline-slate-200 transition-all">
-              {task.owner_id ? <AvatarFallback className="text-[9px]">{ownerInitials}</AvatarFallback> : <AvatarFallback className="text-[9px] bg-dashed border border-slate-300 bg-slate-50 text-slate-400">?</AvatarFallback>}
+            <Avatar
+              title={owner?.full_name || 'Unassigned'}
+              className="w-6 h-6 border bg-slate-100 text-slate-600 font-bold outline-1 outline-offset-1 outline-transparent group-hover:outline-slate-200 transition-all"
+            >
+              {task.owner_id ? (
+                <>
+                  <AvatarImage src={owner?.avatar_url || undefined} alt={owner?.full_name || ''} />
+                  <AvatarFallback className="text-[9px]">{ownerInitials}</AvatarFallback>
+                </>
+              ) : (
+                <AvatarFallback className="text-[9px] bg-dashed border border-slate-300 bg-slate-50 text-slate-400">?</AvatarFallback>
+              )}
             </Avatar>
             
             {task.estimate_pomodoros > 0 && (
@@ -66,9 +96,15 @@ export function TaskCard({ task, projectId }: { task: any, projectId: string }) 
             )}
           </div>
 
-          {task.status !== 'done' && task.status !== 'blocked' && (
-             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs font-semibold text-primary hover:bg-primary/5 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-              <Timer className="w-3.5 h-3.5 mr-1" /> Focus
+          {canEdit && task.status !== 'done' && task.status !== 'blocked' && (
+             <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleFocus}
+              disabled={focusing}
+              className="h-7 px-2 text-xs font-semibold text-primary hover:bg-primary/5 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+             >
+              {focusing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Timer className="w-3.5 h-3.5 mr-1" />} Focus
              </Button>
           )}
         </div>

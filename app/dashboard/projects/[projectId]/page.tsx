@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { BoardClient } from './board-client'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { RecurringTaskDialog } from './recurring-task-dialog'
+import { CacheWriter } from '@/components/offline/cache-writer'
+import { canEditWorkspace } from '@/app/actions/roles'
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ projectId: string }> }) {
   const supabase = await createClient()
@@ -66,15 +68,36 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
     console.error('Exception fetching workspace members:', e);
   }
 
-  const tasks = project.tasks || []
+  const rawTasks = project.tasks || []
+
+  // Attach real owner profiles so the board can show who owns each task
+  // (previously every assignee rendered as a generic "U" avatar).
+  const ownerIds = Array.from(new Set(rawTasks.map((t: any) => t.owner_id).filter(Boolean)))
+  const { data: ownerProfiles } = ownerIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', ownerIds)
+    : { data: [] }
+  const ownerById = new Map((ownerProfiles || []).map((p: any) => [p.id, p]))
+
+  const tasks = rawTasks.map((t: any) => ({
+    ...t,
+    owner: t.owner_id ? ownerById.get(t.owner_id) || null : null,
+  }))
+
+  // Viewers get a read-only board (RLS enforces it; this hides the controls).
+  const canEdit = await canEditWorkspace(project.workspace_id)
+
   const totalTasks = tasks.length
   const doneTasks = tasks.filter((t: any) => t.status === 'done').length
   const blockedTasks = tasks.filter((t: any) => t.status === 'blocked').length
 
   const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100)
 
-  // Aggregate completed sessions for this project. Needs focus_sessions join in reality. We mock it for the UI.
-  const completedSessions = 0
+  // Real count of completed focus sessions for this project.
+  const { count: completedSessions } = await supabase
+    .from('focus_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', project.id)
+    .eq('status', 'completed')
 
   return (
     <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 w-full overflow-hidden">
@@ -102,7 +125,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
               </div>
               <div className="flex items-center gap-1.5 text-sm">
                  <Timer className="w-4 h-4 text-primary" />
-                 <span className="font-bold text-foreground">{completedSessions} <span className="text-muted-foreground font-medium">sessions</span></span>
+                 <span className="font-bold text-foreground">{completedSessions ?? 0} <span className="text-muted-foreground font-medium">sessions</span></span>
               </div>
               {blockedTasks > 0 && (
                 <div className="flex items-center gap-1.5 text-sm">
@@ -114,7 +137,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
 
            {/* Actions */}
            <div className="flex items-center gap-3">
-             <RecurringTaskDialog projectId={project.id} />
+             {canEdit && <RecurringTaskDialog projectId={project.id} />}
              <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="rounded-full shadow-sm bg-white hover:bg-slate-50 border-border h-9">
                  <Activity className="w-4 h-4 mr-2" />
                  View Pulse
@@ -127,9 +150,11 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
       {/* Board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 snap-x">
          <ErrorBoundary>
-            <BoardClient project={project} initialTasks={tasks} />
+            <BoardClient project={project} initialTasks={tasks} canEdit={canEdit} />
          </ErrorBoundary>
       </div>
+
+      <CacheWriter projects={[{ id: project.id, name: project.name, description: project.description, workspace_id: project.workspace_id }]} tasks={tasks} />
     </div>
   )
 }

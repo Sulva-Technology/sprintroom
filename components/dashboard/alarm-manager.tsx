@@ -1,47 +1,83 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { getRhythms } from '@/app/actions/rhythm'
-import { format, parse, isAfter, isBefore, addMinutes } from 'date-fns'
+import { getTodaysReminders } from '@/app/actions/rhythm'
+import { useFocusSound } from '@/hooks/use-focus-sound'
+import { useFocusNotifications } from '@/hooks/use-focus-notifications'
 
+type Reminder = {
+  id: string
+  rhythmTaskId: string
+  time: string // 'HH:MM'
+  title: string
+  rhythmName: string | null
+}
+
+/**
+ * Polls the user's rhythm reminders and fires a sound + browser notification
+ * when a reminder time is reached. Fires at most once per reminder per day
+ * (persisted in localStorage so a reload doesn't re-alarm), and catches up if
+ * the app is opened after a reminder time has already passed.
+ */
 export function AlarmManager() {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const lastPlayedRef = useRef<string | null>(null)
+  const { playSound } = useFocusSound()
+  const { showNotification } = useFocusNotifications()
+  const remindersRef = useRef<Reminder[]>([])
 
   useEffect(() => {
-    // Initialize audio object
-    audioRef.current = new Audio('/sounds/warning.mp3')
-    audioRef.current.volume = 0.5
+    let cancelled = false
 
-    const checkReminders = async () => {
+    const refresh = async () => {
       try {
-        const rhythms = await getRhythms()
-        const now = new Date()
-        const todayDay = now.getDay() // 0-6 (Sun-Sat)
-        const currentTime = format(now, 'HH:mm')
-
-        rhythms.forEach((rhythm: any) => {
-          rhythm.weekly_rhythm_tasks?.forEach((task: any) => {
-            // If task is for today
-            if (task.day_of_week === todayDay) {
-              // We need task_reminders too. 
-              // For now, let's assume if there's a reminder for this task at this time
-              // In the full version, we'd fetch specific task_reminders table
-            }
-          })
-        })
-
-        // Placeholder logic: If it's a specific time, play sound
-        // This is a simplified version. A real implementation would query 
-        // a 'reminders' table joined with 'weekly_rhythm_tasks'
+        const reminders = await getTodaysReminders()
+        if (!cancelled) remindersRef.current = reminders as Reminder[]
       } catch (err) {
-        console.error('Error checking reminders:', err)
+        console.error('Error fetching reminders:', err)
       }
     }
 
-    const interval = setInterval(checkReminders, 60000) // Check every minute
-    return () => clearInterval(interval)
-  }, [])
+    const check = () => {
+      const now = new Date()
+      const current = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      const dateKey = now.toISOString().slice(0, 10)
+
+      for (const reminder of remindersRef.current) {
+        if (!reminder.time) continue
+        // Fire once the reminder time has been reached (with same-day catch-up).
+        if (current < reminder.time) continue
+
+        const firedKey = `sprintroom-reminder-fired-${reminder.id}-${dateKey}`
+        try {
+          if (localStorage.getItem(firedKey)) continue
+          localStorage.setItem(firedKey, '1')
+        } catch {
+          // If localStorage is unavailable we can't dedupe reliably; skip to
+          // avoid an alarm loop.
+          continue
+        }
+
+        playSound('warning')
+        showNotification(
+          `Rhythm reminder: ${reminder.title}`,
+          reminder.rhythmName ? `From "${reminder.rhythmName}"` : 'Time for your scheduled task.'
+        )
+      }
+    }
+
+    refresh()
+    check()
+
+    // Re-pull the reminder set periodically (picks up new/edited/completed ones).
+    const refreshInterval = setInterval(refresh, 5 * 60 * 1000)
+    // Check the clock frequently enough to fire within the target minute.
+    const checkInterval = setInterval(check, 20 * 1000)
+
+    return () => {
+      cancelled = true
+      clearInterval(refreshInterval)
+      clearInterval(checkInterval)
+    }
+  }, [playSound, showNotification])
 
   return null
 }

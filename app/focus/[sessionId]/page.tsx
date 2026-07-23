@@ -105,6 +105,8 @@ export default async function FocusSessionPage({
           startedAt={session.started_at}
           durationMinutes={session.duration_minutes}
           distractionsCount={session.distractions_count || 0}
+          pausedAt={session.paused_at ?? null}
+          totalPausedSeconds={session.total_paused_seconds ?? 0}
         />
       </div>
     </div>

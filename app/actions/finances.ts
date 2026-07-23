@@ -138,22 +138,26 @@ export async function getFinancialMetrics(workspaceId: string) {
   }
 
   const metrics = (data || []).reduce((acc, entry) => {
+    const amount = Number(entry.amount)
     if (entry.type === 'income') {
-      acc.totalIncome += Number(entry.amount)
+      acc.totalIncome += amount
     } else if (entry.type === 'expense') {
-      acc.totalExpense += Number(entry.amount)
+      acc.totalExpense += amount
+    } else if (entry.type === 'adjustment') {
+      // Adjustments are manual corrections applied additively to the balance.
+      acc.totalAdjustments += amount
     }
-    
-    // Aggregation by project
+
+    // Aggregation by project (expenses only)
     if (entry.project_id) {
-      acc.byProject[entry.project_id] = (acc.byProject[entry.project_id] || 0) + (entry.type === 'expense' ? Number(entry.amount) : 0)
+      acc.byProject[entry.project_id] = (acc.byProject[entry.project_id] || 0) + (entry.type === 'expense' ? amount : 0)
     }
 
     return acc
-  }, { totalIncome: 0, totalExpense: 0, byProject: {} as Record<string, number> })
+  }, { totalIncome: 0, totalExpense: 0, totalAdjustments: 0, byProject: {} as Record<string, number> })
 
   return {
     ...metrics,
-    netBalance: metrics.totalIncome - metrics.totalExpense
+    netBalance: metrics.totalIncome - metrics.totalExpense + metrics.totalAdjustments
   }
 }
