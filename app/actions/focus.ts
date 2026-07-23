@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getActiveWorkspaceId } from '@/app/actions/workspaces'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -295,33 +296,63 @@ export async function markSessionAbandoned(sessionId: string) {
   return redirect('/dashboard')
 }
 
+function normalizeInstantSession(session: any) {
+  return {
+    ...session,
+    task_title: 'Instant Focus',
+    project_id: null,
+    project_name: 'No Project',
+    distractions_count: session?.distractions_count || 0,
+  }
+}
+
 export async function createInstantFocusSession(durationMinutes: number = 25) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: { message: 'Not authenticated.' } };
 
-  // Fetch a default workspace for the user to satisfy RLS
-  const { data: workspaces } = await supabase
-    .from('workspaces')
-    .select('id')
-    .limit(1);
+  // Resolve the workspace the session belongs to. This must be the ACTIVE
+  // workspace (the one the switcher shows), not an arbitrary `workspaces`
+  // row: the RLS insert check is is_workspace_editor(workspace_id), so an
+  // unordered limit(1) could land on a workspace where the user is a viewer
+  // (insert rejected) or simply file the session under the wrong workspace.
+  const { data: memberships } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, role')
+    .eq('user_id', user.id)
 
-  const workspaceId = workspaces?.[0]?.id;
+  const editorMemberships = (memberships || []).filter(
+    (m) => m.role === 'owner' || m.role === 'admin' || m.role === 'member'
+  )
 
-  if (!workspaceId) {
+  if (!memberships || memberships.length === 0) {
     return { success: false, error: { message: 'No workspace found. Please create a workspace first.' } };
   }
 
-  // Check if already active
+  if (editorMemberships.length === 0) {
+    return { success: false, error: { message: 'Viewers cannot start focus sessions in this workspace.' } };
+  }
+
+  const activeWorkspaceId = await getActiveWorkspaceId()
+  const workspaceId =
+    (activeWorkspaceId && editorMemberships.some((m) => m.workspace_id === activeWorkspaceId)
+      ? activeWorkspaceId
+      : editorMemberships[0].workspace_id)
+
+  // Already running? Return it instead of erroring — the caller just wants an
+  // active session on screen, and a partial-unique index makes a second insert
+  // fail anyway.
   const { data: activeSession } = await supabase
     .from('focus_sessions')
-    .select('id')
+    .select('*')
     .eq('user_id', user.id)
     .eq('status', 'active')
-    .single();
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (activeSession) {
-    return { success: false, error: { message: 'You already have an active focus session.' } };
+    return { success: true, alreadyActive: true, data: normalizeInstantSession(activeSession) };
   }
 
   const { data: newSession, error: insertError } = await supabase.from('focus_sessions').insert({
@@ -334,22 +365,23 @@ export async function createInstantFocusSession(durationMinutes: number = 25) {
 
   if (insertError) {
     console.error('Error creating instant focus session:', insertError);
-    return { success: false, error: { message: 'Failed to create instant focus session.', details: insertError.message } };
+    return {
+      success: false,
+      error: {
+        message: insertError.code === '42501'
+          ? 'You do not have permission to start a focus session in this workspace.'
+          : `Failed to create instant focus session: ${insertError.message}`,
+        details: insertError.message,
+      },
+    };
   }
 
-  revalidatePath('/dashboard');
+  // 'layout' — the focus tube lives in the dashboard LAYOUT (fed by
+  // getActiveFocusSession), so a page-only revalidate never surfaces it.
+  revalidatePath('/dashboard', 'layout');
 
   // Return the full session object needed by FocusTubeProvider
-  return {
-    success: true,
-    data: {
-      ...newSession,
-      task_title: 'Instant Focus', // Default title for instant sessions
-      project_id: null,
-      project_name: 'No Project',
-      distractions_count: 0
-    }
-  };
+  return { success: true, alreadyActive: false, data: normalizeInstantSession(newSession) };
 }
 
 export async function scheduleFocusSession(startTime: string, durationMinutes: number = 25, taskId?: string, projectId?: string) {

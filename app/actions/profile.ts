@@ -29,3 +29,52 @@ export async function updateProfile(data: { full_name?: string, avatar_url?: str
   revalidatePath('/dashboard')
   return { success: true }
 }
+
+function isValidTimezone(timezone: string) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Stores the browser's IANA timezone on the profile. The hourly rhythm nudge is
+ * sent server-side, so without this the sender can't tell when 06:00 is for
+ * this user (it falls back to UTC).
+ */
+export async function syncTimezone(timezone: string) {
+  if (typeof timezone !== 'string' || timezone.length > 64 || !isValidTimezone(timezone)) {
+    return { error: 'Invalid timezone' }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ timezone })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+/** Opt in/out of the hourly 06:00–18:00 rhythm nudge. */
+export async function setRhythmNudgesEnabled(enabled: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ rhythm_nudges_enabled: enabled })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}

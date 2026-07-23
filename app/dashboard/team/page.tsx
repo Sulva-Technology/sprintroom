@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getActiveWorkspaceId } from '@/app/actions/workspaces'
 import { redirect } from 'next/navigation'
 import { TeamHealthCard } from '@/components/team/team-health-card'
 import { MemberPulseTable } from '@/components/team/member-pulse-table'
@@ -19,14 +20,16 @@ export default async function TeamPulsePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 1. Fetch workspaces the user is part of
+  // 1. Resolve the ACTIVE workspace. Team Pulse is a single-workspace view —
+  // aggregating every workspace the user belongs to made members, tasks and
+  // sessions from unrelated workspaces bleed into one another.
   const { data: userWorkspaces } = await supabase
     .from('workspace_members')
     .select('workspace_id, role')
     .eq('user_id', user.id)
 
-  const workspaceIds = userWorkspaces?.map(w => w.workspace_id) || []
-  if (workspaceIds.length === 0) {
+  const membershipIds = userWorkspaces?.map(w => w.workspace_id) || []
+  if (membershipIds.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-muted-foreground">You are not part of any workspaces.</p>
@@ -34,15 +37,19 @@ export default async function TeamPulsePage() {
     )
   }
 
-  const primaryWorkspaceId = workspaceIds[0]
-  const userRoleInPrimaryWorkspace = userWorkspaces?.find(w => w.workspace_id === primaryWorkspaceId)?.role || 'member'
-  const canInvite = userRoleInPrimaryWorkspace === 'owner' || userRoleInPrimaryWorkspace === 'admin'
+  const cookieWorkspaceId = await getActiveWorkspaceId()
+  const activeWorkspaceId = cookieWorkspaceId && membershipIds.includes(cookieWorkspaceId)
+    ? cookieWorkspaceId
+    : membershipIds[0]
 
-  // 2. Fetch all members in these workspaces
+  const userRole = userWorkspaces?.find(w => w.workspace_id === activeWorkspaceId)?.role || 'member'
+  const canInvite = userRole === 'owner' || userRole === 'admin'
+
+  // 2. Fetch the members of the active workspace only
   const { data: workspaceMembersRaw } = await supabase
     .from('workspace_members')
     .select('user_id')
-    .in('workspace_id', workspaceIds)
+    .eq('workspace_id', activeWorkspaceId)
 
   const memberIds = Array.from(new Set(workspaceMembersRaw?.map(wm => wm.user_id).filter(Boolean) || []))
 
@@ -75,7 +82,7 @@ export default async function TeamPulsePage() {
   const { data: projectsRaw } = await supabase
     .from('projects')
     .select('id, name')
-    .in('workspace_id', workspaceIds)
+    .eq('workspace_id', activeWorkspaceId)
 
   const projectIds = projectsRaw?.map(p => p.id) || []
   const projectsMap = new Map(projectsRaw?.map(p => [p.id, p]) || [])
@@ -99,6 +106,7 @@ export default async function TeamPulsePage() {
   const { data: recentSessions } = await supabase
     .from('focus_sessions')
     .select('*')
+    .eq('workspace_id', activeWorkspaceId)
     .in('user_id', userIds)
     .gte('started_at', sevenDaysAgo.toISOString()) // last 7 days
 
@@ -215,6 +223,7 @@ export default async function TeamPulsePage() {
   const { data: activityLogsRaw } = await supabase
     .from('task_activity')
     .select('*, tasks(title)')
+    .eq('workspace_id', activeWorkspaceId)
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -227,7 +236,7 @@ export default async function TeamPulsePage() {
 
   return (
     <div className="flex flex-col pb-12 w-full mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <TeamPulseHeader workspaceId={primaryWorkspaceId} canInvite={canInvite} />
+      <TeamPulseHeader workspaceId={activeWorkspaceId} canInvite={canInvite} />
 
       <TeamHealthCard stats={teamStats} insight={insightMsg} />
 

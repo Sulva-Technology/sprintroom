@@ -19,6 +19,10 @@ import { WeeklyRhythmProgress, groupWeeklyRhythmTasks } from '@/lib/weekly-rhyth
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+// Shared by the header row and every task row so the columns stay aligned
+// inside the horizontally scrollable container.
+const GRID_TEMPLATE = 'minmax(180px, 240px) repeat(7, minmax(56px, 1fr))'
+
 interface RhythmTask {
   id: string
   title: string
@@ -104,11 +108,14 @@ export function WeeklyPlannerGrid({
   if (rhythms.length === 0) return null
 
   return (
-    <div className="bg-white border border-border/50 rounded-3xl shadow-sm overflow-hidden">
+    // overflow-x-auto (not overflow-hidden): the grid's min width is ~600px, so
+    // on a phone the last days used to be clipped with no way to reach them.
+    <div className="bg-white border border-border/50 rounded-3xl shadow-sm overflow-x-auto overscroll-x-contain">
+      <div className="min-w-[640px]">
       {/* Column Headers */}
       <div
         className="grid border-b border-border/40"
-        style={{ gridTemplateColumns: '240px repeat(7, 1fr)' }}
+        style={{ gridTemplateColumns: GRID_TEMPLATE }}
       >
         <div className="p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-r border-border/30">
           Task
@@ -188,7 +195,7 @@ export function WeeklyPlannerGrid({
                 <div
                   key={task.id}
                   className="grid border-b border-border/10 last:border-b-0 hover:bg-slate-50/50 transition-colors"
-                  style={{ gridTemplateColumns: '240px repeat(7, 1fr)' }}
+                  style={{ gridTemplateColumns: GRID_TEMPLATE }}
                 >
                   {/* Task name */}
                   <div className="p-3 px-4 flex items-center border-r border-border/20">
@@ -250,6 +257,7 @@ export function WeeklyPlannerGrid({
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

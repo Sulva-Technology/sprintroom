@@ -25,3 +25,11 @@ entrypoint = "./functions/process-recurring-tasks/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/process-schedules/index.ts"
+
+# Called hourly by a scheduler (pg_cron/pg_net or the dashboard scheduler), not
+# by a signed-in user — auth is the CRON_SECRET bearer token, so JWT
+# verification must stay off or every call is rejected before it runs.
+[functions.rhythm-nudges]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/rhythm-nudges/index.ts"

@@ -5,6 +5,7 @@ import { RecurringTasksList } from '@/components/recurring-tasks-list'
 import { CreateRecurringTaskDialog } from '@/components/create-recurring-task-dialog'
 import { ProfileForm } from '@/components/settings/profile-form'
 import { CurrencyPreferenceForm } from '@/components/settings/currency-preference-form'
+import { RhythmNudgeForm } from '@/components/settings/rhythm-nudge-form'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -41,6 +42,16 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <CurrencyPreferenceForm />
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card border-none">
+        <CardHeader>
+          <CardTitle className="text-lg">Reminders</CardTitle>
+          <CardDescription>Stay on top of your weekly rhythm.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RhythmNudgeForm enabled={profile?.rhythm_nudges_enabled ?? true} />
         </CardContent>
       </Card>
 

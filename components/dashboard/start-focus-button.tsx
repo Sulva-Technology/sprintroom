@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Timer, Loader2 } from 'lucide-react'
 import { createInstantFocusSession } from '@/app/actions/focus'
@@ -10,6 +11,7 @@ import { useFocusSound } from '@/hooks/use-focus-sound'
 export function StartFocusButton() {
   const [isLoading, setIsLoading] = useState(false)
   const { playSound } = useFocusSound()
+  const router = useRouter()
 
   const handleStartInstantFocus = async () => {
     playSound('focus-start')
@@ -17,8 +19,13 @@ export function StartFocusButton() {
     try {
       const res = await createInstantFocusSession()
       if (res.success) {
-        toast('Focus Session Started!', {
-          description: 'An instant focus session has begun.',
+        // The focus tube is rendered by the dashboard layout from server data —
+        // refresh so it mounts immediately instead of waiting on realtime.
+        router.refresh()
+        toast(res.alreadyActive ? 'Focus session already running' : 'Focus Session Started!', {
+          description: res.alreadyActive
+            ? 'Resumed your current session.'
+            : 'An instant focus session has begun.',
         })
       } else {
         toast('Failed to start focus session', {

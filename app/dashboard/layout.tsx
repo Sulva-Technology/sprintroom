@@ -17,6 +17,7 @@ import { AlarmManager } from '@/components/dashboard/alarm-manager'
 import { RealtimePulse } from '@/components/app-shell/realtime-pulse'
 import { CacheWriter } from '@/components/offline/cache-writer'
 import { RouteWarmer } from '@/components/offline/route-warmer'
+import { TimezoneSync } from '@/components/app-shell/timezone-sync'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
@@ -41,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <OfflineProvider>
       <div className="flex h-screen overflow-hidden bg-[#F7F8FA] font-sans selection:bg-primary/20">
         <AlarmManager />
+        <TimezoneSync savedTimezone={profile?.timezone} />
         <RealtimePulse workspaceId={activeWorkspaceId} />
         <Sidebar user={user} profile={profile} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} recentProjects={recentProjects} />
 

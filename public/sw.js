@@ -11,7 +11,7 @@
  * `pages` and `rsc` hold authenticated markup, so they are wiped on sign-out via
  * the CLEAR_APP_CACHE message.
  */
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const STATIC_CACHE = `sprintroom-static-${CACHE_VERSION}`;
 const ASSET_CACHE = `sprintroom-assets-${CACHE_VERSION}`;
 const PAGE_CACHE = `sprintroom-pages-${CACHE_VERSION}`;
@@ -594,7 +594,9 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   const taskId = event.notification.data?.taskId;
-  const urlToOpen = event.action === 'focus' && taskId ? `/dashboard?focus=${taskId}` : '/dashboard';
+  const urlToOpen = event.action === 'focus' && taskId
+    ? `/dashboard?focus=${taskId}`
+    : event.notification.data?.url || '/dashboard';
 
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then((clientList) => {

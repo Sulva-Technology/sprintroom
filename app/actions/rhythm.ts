@@ -109,6 +109,54 @@ export async function saveRhythmTemplate(data: any) {
 }
 
 /**
+ * Every rhythm task scheduled for today that the user has not logged yet —
+ * regardless of whether it has an explicit reminder time. Drives the hourly
+ * "clear your rhythm" nudge.
+ *
+ * The day is passed in by the caller because the window is device-local: the
+ * server may be in a different timezone than the user.
+ */
+export async function getTodaysOpenRhythmTasks(dayOfWeek: number, dateKey: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) return []
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return []
+
+  const { data, error } = await supabase
+    .from('weekly_rhythm_tasks')
+    .select('id, title, weekly_rhythm_templates!inner(name, user_id)')
+    .eq('day_of_week', dayOfWeek)
+    .eq('weekly_rhythm_templates.user_id', user.id)
+
+  if (error) {
+    console.error('Error fetching today\'s rhythm tasks:', error)
+    return []
+  }
+
+  const tasks = data || []
+  if (tasks.length === 0) return []
+
+  const { data: logs } = await supabase
+    .from('weekly_rhythm_logs')
+    .select('rhythm_task_id')
+    .eq('user_id', user.id)
+    .eq('completed_at', dateKey)
+    .in('rhythm_task_id', tasks.map((task: any) => task.id))
+
+  const completed = new Set((logs || []).map((log: any) => log.rhythm_task_id))
+
+  return tasks
+    .filter((task: any) => !completed.has(task.id))
+    .map((task: any) => ({
+      id: task.id,
+      title: task.title || 'Rhythm task',
+      rhythmName: task.weekly_rhythm_templates?.name || null,
+    }))
+}
+
+/**
  * Reminders due today for the current user: rhythm tasks scheduled for today's
  * weekday that have an enabled reminder and haven't been completed yet.
  */

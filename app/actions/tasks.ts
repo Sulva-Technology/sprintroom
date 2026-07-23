@@ -147,7 +147,11 @@ export async function createTask(data: any) {
     priority: validated.data.priority || 'medium',
     deadline: validated.data.deadline ? new Date(validated.data.deadline).toISOString() : null,
     estimate_pomodoros: validated.data.estimate_pomodoros || 0,
-    user_id: user.id
+    // NOTE: `tasks` has no `user_id` column — authorship is `created_by`
+    // (`owner_id` is the assignee). Sending user_id made every insert fail with
+    // PGRST204 "Could not find the 'user_id' column of 'tasks'".
+    // workspace_id is filled by the set_task_workspace_id BEFORE INSERT trigger.
+    created_by: user.id
   }).select('id').single()
 
   if (error) {

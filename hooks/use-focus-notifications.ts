@@ -34,18 +34,37 @@ export function useFocusNotifications() {
     }
   }, [isSupported, notificationsEnabled])
 
-  const showNotification = useCallback((title: string, body: string) => {
+  const showNotification = useCallback((title: string, body: string, options?: { tag?: string }) => {
     if (!notificationsEnabled || !isSupported) return
-    if (Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body,
-          icon: '/icon-192.png'
+    if (Notification.permission !== 'granted') return
+
+    const payload: NotificationOptions = {
+      body,
+      icon: '/icon-192.png',
+      badge: '/favicon.png',
+      ...(options?.tag ? { tag: options.tag } : {}),
+    }
+
+    // Prefer the service worker: mobile browsers (Android Chrome) throw
+    // "Illegal constructor" for `new Notification()` in a page context, so the
+    // direct constructor silently fails on exactly the devices that need it.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then((registration) => registration.showNotification(title, payload))
+        .catch(() => {
+          try {
+            new Notification(title, payload)
+          } catch (e) {
+            console.warn('Failed to show notification', e)
+          }
         })
-      } catch (e) {
-        console.warn('Failed to show notification', e)
-        // Service worker fallback could be implemented here if using service workers
-      }
+      return
+    }
+
+    try {
+      new Notification(title, payload)
+    } catch (e) {
+      console.warn('Failed to show notification', e)
     }
   }, [notificationsEnabled, isSupported])
 
