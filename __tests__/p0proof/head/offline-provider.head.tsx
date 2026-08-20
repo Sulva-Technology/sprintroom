@@ -1,37 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { OfflineBanner } from './offline-banner'
-import { SyncStatusPill } from './sync-status-pill'
-import { PendingChangesDrawer } from './pending-changes-drawer'
+import { OfflineBanner } from '@/components/offline/offline-banner'
+import { SyncStatusPill } from '@/components/offline/sync-status-pill'
+import { PendingChangesDrawer } from '@/components/offline/pending-changes-drawer'
 import { processSyncQueue } from '@/lib/offline/sync-engine'
 import { useNetworkStatus } from '@/hooks/use-network-status'
 
 // We need an executor to translate the offline action to an actual server call
 import { createTask, updateTaskStatus, markBlocked } from '@/app/actions/tasks'
 import { updateTask, addComment, addChecklistItem, toggleChecklistItem, deleteChecklistItem } from '@/app/actions/task-details'
-
-/**
- * Server actions here report failure by RETURNING `{ error }` / `{ success: false }`
- * rather than throwing. processSyncQueue only treats a thrown error as a failed
- * item, so an unchecked return meant a rejected mutation (RLS denial, validation
- * failure, deleted parent row) was dropped from the queue as if it had synced —
- * silent data loss. Every branch must funnel its result through this.
- */
-function assertSynced(result: any, action: string) {
-  if (!result) return result
-
-  if (result.error) {
-    const message = typeof result.error === 'string' ? result.error : result.error.message
-    throw new Error(message || `${action} failed`)
-  }
-
-  if (result.success === false) {
-    throw new Error(`${action} failed`)
-  }
-
-  return result
-}
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const { isOnline } = useNetworkStatus()
@@ -44,7 +22,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     switch (action) {
       case 'create_task': {
         if (!project_id) throw new Error('Missing project_id')
-        const res = assertSynced(await createTask(payload), action)
+        const res = await createTask(payload)
+        if (res && (res as any).error) throw new Error((res as any).error.message || 'Create failed')
         // Return the real server id so follow-up queued items on this task remap.
         return { newId: (res as any)?.id }
       }
@@ -72,28 +51,26 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         return { newId: (res as any).workspace?.id }
       }
       case 'update_task':
-        assertSynced(await updateTask(entity_id, payload, project_id || ''), action)
+        await updateTask(entity_id, payload, project_id || '')
         break;
       case 'update_task_status':
-        assertSynced(await updateTaskStatus(entity_id, payload.status, { projectId: project_id }), action)
+        await updateTaskStatus(entity_id, payload.status, { projectId: project_id })
         break;
       case 'mark_task_blocked':
         if (!project_id) throw new Error('Missing project_id')
-        assertSynced(await markBlocked(entity_id, payload.blockedReason, project_id), action)
+        await markBlocked(entity_id, payload.blockedReason, project_id)
         break;
       case 'create_comment':
-        assertSynced(await addComment(entity_id, payload.content, project_id), action)
+        await addComment(entity_id, payload.content, project_id)
         break;
       case 'create_checklist_item':
-        assertSynced(await addChecklistItem(entity_id, payload.content, project_id), action)
+        await addChecklistItem(entity_id, payload.content, project_id)
         break;
       case 'update_checklist_item':
         if (payload.action === 'toggle') {
-          assertSynced(await toggleChecklistItem(entity_id, payload.completed, project_id), action)
+          await toggleChecklistItem(entity_id, payload.completed, project_id)
         } else if (payload.action === 'delete') {
-          assertSynced(await deleteChecklistItem(entity_id, project_id), action)
-        } else {
-          throw new Error(`Unknown checklist action: ${payload.action}`)
+          await deleteChecklistItem(entity_id, project_id)
         }
         break;
       case 'complete_focus_session': {
@@ -106,7 +83,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       }
       case 'increment_distraction': {
         const { incrementDistraction } = await import('@/app/actions/focus')
-        assertSynced(await incrementDistraction(entity_id), action)
+        await incrementDistraction(entity_id)
         break;
       }
       case 'cancel_focus_session': {

@@ -5,6 +5,7 @@ import { CreateProjectDialog } from './create-project-dialog'
 import { ProjectsList } from './projects-list'
 import { canEditWorkspace } from '@/app/actions/roles'
 import { CacheWriter } from '@/components/offline/cache-writer'
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 
 function initialsOf(name?: string | null) {
   if (!name) return '?'
@@ -20,19 +21,16 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
   const resolvedSearchParams = await searchParams
   const shouldOpenCreateDialog = resolvedSearchParams?.new === 'true'
 
-  // Fetch workspace memberships and projects in parallel if possible
-  const { data: workspacesRaw } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
+  // Scope to the ACTIVE workspace only. Previously this listed projects (and
+  // members) from every workspace the user belonged to, so switching the
+  // workspace switcher never changed what appeared here.
+  const activeWorkspaceId = await resolveActiveWorkspaceId()
 
-  const workspaceIds = workspacesRaw?.map(w => w.workspace_id) || []
-
-  const { data: projectsRaw } = workspaceIds.length > 0
+  const { data: projectsRaw } = activeWorkspaceId
     ? await supabase
         .from('projects')
         .select('*, tasks(*), focus_sessions(count)')
-        .in('workspace_id', workspaceIds)
+        .eq('workspace_id', activeWorkspaceId)
         .order('created_at', { ascending: false })
     : { data: [] }
 
@@ -43,8 +41,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams?: Pr
 
   // Fetch real workspace members (with profiles) so project cards show who's on
   // each project instead of an empty avatar stack.
-  const { data: memberRows } = workspaceIds.length > 0
-    ? await supabase.from('workspace_members').select('workspace_id, user_id').in('workspace_id', workspaceIds)
+  const { data: memberRows } = activeWorkspaceId
+    ? await supabase.from('workspace_members').select('workspace_id, user_id').eq('workspace_id', activeWorkspaceId)
     : { data: [] }
 
   const memberUserIds = Array.from(new Set((memberRows || []).map((m: any) => m.user_id)))

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getActiveWorkspaceId } from '@/app/actions/workspaces'
+import { pickActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { redirect } from 'next/navigation'
 import { TeamHealthCard } from '@/components/team/team-health-card'
 import { MemberPulseTable } from '@/components/team/member-pulse-table'
@@ -25,8 +26,9 @@ export default async function TeamPulsePage() {
   // sessions from unrelated workspaces bleed into one another.
   const { data: userWorkspaces } = await supabase
     .from('workspace_members')
-    .select('workspace_id, role')
+    .select('workspace_id, role, created_at')
     .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
 
   const membershipIds = userWorkspaces?.map(w => w.workspace_id) || []
   if (membershipIds.length === 0) {
@@ -37,10 +39,10 @@ export default async function TeamPulsePage() {
     )
   }
 
+  // Same stable resolution as every other surface (shared pure picker).
+  // membershipIds is non-empty here (guarded above), so this is always defined.
   const cookieWorkspaceId = await getActiveWorkspaceId()
-  const activeWorkspaceId = cookieWorkspaceId && membershipIds.includes(cookieWorkspaceId)
-    ? cookieWorkspaceId
-    : membershipIds[0]
+  const activeWorkspaceId = pickActiveWorkspaceId(cookieWorkspaceId, membershipIds) ?? membershipIds[0]
 
   const userRole = userWorkspaces?.find(w => w.workspace_id === activeWorkspaceId)?.role || 'member'
   const canInvite = userRole === 'owner' || userRole === 'admin'

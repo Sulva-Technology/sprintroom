@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getActiveWorkspaceId } from '@/app/actions/workspaces'
+import { pickActiveWorkspaceId, resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -153,23 +154,41 @@ export async function resumeFocusSession(sessionId: string) {
 
 export async function incrementDistraction(sessionId: string) {
   const supabase = await createClient()
-  const { data: session } = await supabase.from('focus_sessions').select('distractions_count, task_id').eq('id', sessionId).single()
 
-  if (session) {
-    await supabase.from('focus_sessions').update({
-      distractions_count: (session.distractions_count || 0) + 1
-    }).eq('id', sessionId)
+  // Both the read and the write must be scoped to the caller. Without the auth
+  // check and the user_id filter, "Sessions viewable by members" let any
+  // workspace member read a colleague's session and drive this counter.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
 
-    // Attempt to revalidate if we can find the project
-    const s = session as any
-    if (s.task_id) {
-      const { data: taskData } = await supabase.from('tasks').select('project_id').eq('id', s.task_id).single()
-      if (taskData?.project_id) {
-        revalidatePath(`/dashboard/projects/${taskData.project_id}`)
-      }
+  const { data: session } = await supabase
+    .from('focus_sessions')
+    .select('distractions_count, task_id')
+    .eq('id', sessionId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  // Not the caller's session (or gone). Must not report success: the offline
+  // sync queue treats a clean return as "synced" and drops the queued item.
+  if (!session) return { success: false, error: 'Focus session not found' }
+
+  const { error: updateError } = await supabase.from('focus_sessions').update({
+    distractions_count: (session.distractions_count || 0) + 1
+  }).eq('id', sessionId).eq('user_id', user.id)
+
+  if (updateError) return { success: false, error: updateError.message }
+
+  // Attempt to revalidate if we can find the project
+  const s = session as any
+  if (s.task_id) {
+    const { data: taskData } = await supabase.from('tasks').select('project_id').eq('id', s.task_id).single()
+    if (taskData?.project_id) {
+      revalidatePath(`/dashboard/projects/${taskData.project_id}`)
     }
-    revalidatePath('/dashboard', 'layout')
   }
+  revalidatePath('/dashboard', 'layout')
+
+  return { success: true }
 }
 
 /**
@@ -318,26 +337,28 @@ export async function createInstantFocusSession(durationMinutes: number = 25) {
   // (insert rejected) or simply file the session under the wrong workspace.
   const { data: memberships } = await supabase
     .from('workspace_members')
-    .select('workspace_id, role')
+    .select('workspace_id, role, created_at')
     .eq('user_id', user.id)
-
-  const editorMemberships = (memberships || []).filter(
-    (m) => m.role === 'owner' || m.role === 'admin' || m.role === 'member'
-  )
+    .order('created_at', { ascending: true })
 
   if (!memberships || memberships.length === 0) {
     return { success: false, error: { message: 'No workspace found. Please create a workspace first.' } };
   }
 
-  if (editorMemberships.length === 0) {
+  // File the instant session against the SAME workspace the rest of the UI is
+  // showing (shared resolver), not an arbitrary editor workspace — otherwise an
+  // instant session could silently belong to a different workspace than the one
+  // on screen. Viewers of the active workspace still can't start one.
+  const cookieWorkspaceId = await getActiveWorkspaceId()
+  const workspaceId = pickActiveWorkspaceId(
+    cookieWorkspaceId,
+    memberships.map((m) => m.workspace_id),
+  )
+
+  const activeRole = memberships.find((m) => m.workspace_id === workspaceId)?.role
+  if (!activeRole || activeRole === 'viewer') {
     return { success: false, error: { message: 'Viewers cannot start focus sessions in this workspace.' } };
   }
-
-  const activeWorkspaceId = await getActiveWorkspaceId()
-  const workspaceId =
-    (activeWorkspaceId && editorMemberships.some((m) => m.workspace_id === activeWorkspaceId)
-      ? activeWorkspaceId
-      : editorMemberships[0].workspace_id)
 
   // Already running? Return it instead of erroring — the caller just wants an
   // active session on screen, and a partial-unique index makes a second insert
@@ -352,7 +373,11 @@ export async function createInstantFocusSession(durationMinutes: number = 25) {
     .maybeSingle();
 
   if (activeSession) {
-    return { success: true, alreadyActive: true, data: normalizeInstantSession(activeSession) };
+    // Do NOT force instant labels here — the running session may be a task
+    // Pomodoro. The client refreshes and re-reads it via getActiveFocusSession
+    // (which labels task sessions correctly), so return the raw row rather than
+    // mislabeling a task session as "Instant Focus / No Project".
+    return { success: true, alreadyActive: true, data: activeSession };
   }
 
   const { data: newSession, error: insertError } = await supabase.from('focus_sessions').insert({
@@ -408,6 +433,17 @@ export async function scheduleFocusSession(startTime: string, durationMinutes: n
       insertData.workspace_id = taskData.workspace_id
       insertData.project_id = taskData.project_id || projectId
     }
+  }
+
+  // A schedule with no workspace auto-starts a session with workspace_id NULL,
+  // which the focus_sessions SELECT policy hides from its own owner while the
+  // partial unique index still counts it as active. Always resolve one.
+  if (!insertData.workspace_id) {
+    insertData.workspace_id = await resolveActiveWorkspaceId()
+  }
+
+  if (!insertData.workspace_id) {
+    return { success: false, error: 'No workspace found. Create or join a workspace first.' }
   }
 
   const { error } = await supabase.from('focus_schedules').insert(insertData)

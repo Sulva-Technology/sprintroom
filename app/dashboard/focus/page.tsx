@@ -7,12 +7,18 @@ import { formatDistanceToNow, format } from 'date-fns'
 import Link from 'next/link'
 import { ScheduleFocusDialog } from '@/components/schedule-focus-dialog'
 import { UpcomingSchedulesList } from '@/components/upcoming-schedules-list'
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 
 export default async function FocusSessionsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // The dialog must hand the workspace down: a schedule created without one
+  // auto-starts a session the owner cannot see (RLS scopes focus_sessions by
+  // workspace membership).
+  const activeWorkspaceId = await resolveActiveWorkspaceId()
 
   // Fetch recent focus sessions
   const { data: sessions } = await supabase
@@ -62,7 +68,7 @@ export default async function FocusSessionsPage() {
           </p>
         </div>
         <div>
-          <ScheduleFocusDialog />
+          <ScheduleFocusDialog workspaceId={activeWorkspaceId} />
         </div>
       </div>
 

@@ -8,5 +8,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./__tests__/setup.ts'],
+    // The RLS harness needs a live local stack (`supabase start`, i.e. Docker) and
+    // fails loudly rather than skipping, so it cannot sit in the default gate.
+    // Run it with `npm run test:rls` once the stack is up.
+    exclude: ['**/node_modules/**', '**/dist/**', '__tests__/rls/**'],
   },
 })

@@ -2,10 +2,17 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { pickUpdatableTaskFields } from '@/lib/tasks/updatable-fields'
 
-export async function updateTask(id: string, data: any, projectId: string) {
+export async function updateTask(id: string, data: unknown, projectId: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('tasks').update(data).eq('id', id)
+
+  // Never hand a client object straight to .update(): workspace_id/project_id/
+  // created_by are tenancy columns and must not be client-writable.
+  const fields = pickUpdatableTaskFields(data)
+  if (!fields.ok) return { error: fields.error }
+
+  const { error } = await supabase.from('tasks').update(fields.data).eq('id', id)
   if (error) return { error: error.message }
   
   revalidatePath(`/dashboard/projects/${projectId}`)

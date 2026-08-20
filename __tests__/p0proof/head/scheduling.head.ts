@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -31,28 +30,6 @@ const createRecurringTaskSchema = z.object({
 // --- Actions ---
 
 /**
- * The workspace a scheduled session belongs to: the task's, else the project's,
- * else the active workspace. Never null for a user with a membership.
- */
-async function resolveWorkspaceForSchedule(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  taskId?: string | null,
-  projectId?: string | null,
-) {
-  if (taskId) {
-    const { data } = await supabase.from('tasks').select('workspace_id').eq('id', taskId).maybeSingle()
-    if (data?.workspace_id) return data.workspace_id as string
-  }
-
-  if (projectId) {
-    const { data } = await supabase.from('projects').select('workspace_id').eq('id', projectId).maybeSingle()
-    if (data?.workspace_id) return data.workspace_id as string
-  }
-
-  return (await resolveActiveWorkspaceId()) ?? null
-}
-
-/**
  * Schedule a focus session for the future
  */
 export async function scheduleFocusSession(data: any) {
@@ -68,26 +45,11 @@ export async function scheduleFocusSession(data: any) {
     return { success: false, error: { message: 'Not authenticated' } }
   }
 
-  // A schedule MUST carry a workspace. Without one the auto-started session is
-  // created with workspace_id NULL, and the focus_sessions SELECT policy hides
-  // it from its own owner — the session then blocks the partial unique index
-  // while being invisible and unfinishable.
-  const workspaceId =
-    validated.data.workspace_id ||
-    (await resolveWorkspaceForSchedule(supabase, validated.data.task_id, validated.data.project_id))
-
-  if (!workspaceId) {
-    return {
-      success: false,
-      error: { message: 'No workspace found', details: 'Join or create a workspace before scheduling a session.' },
-    }
-  }
-
   const { error } = await supabase.from('focus_schedules').insert({
     user_id: user.id,
     task_id: validated.data.task_id,
     project_id: validated.data.project_id || null,
-    workspace_id: workspaceId,
+    workspace_id: validated.data.workspace_id || null,
     start_time: new Date(validated.data.start_time).toISOString(),
     duration_minutes: validated.data.duration_minutes,
     status: 'pending'

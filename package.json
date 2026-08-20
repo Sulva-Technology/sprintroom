@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "clean": "next clean",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rls": "vitest run --dir __tests__/rls --exclude.0=!__tests__/rls"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

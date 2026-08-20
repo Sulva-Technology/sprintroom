@@ -10,7 +10,7 @@ import { BlockersPanel } from '@/components/dashboard/blockers-panel'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { format } from 'date-fns'
 import { StartFocusButton } from '@/components/dashboard/start-focus-button'
-import { getActiveWorkspaceId } from '@/app/actions/workspaces'
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -24,19 +24,9 @@ export default async function DashboardPage() {
   const tomorrowStart = new Date(todayStart)
   tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
-  // Resolve the active workspace from the cookie, falling back to the user's
-  // first membership. The dashboard is scoped to a single workspace so it stays
-  // consistent with the workspace switcher.
-  const { data: membershipsRaw } = await supabase
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', user.id)
-
-  const membershipIds = (membershipsRaw || []).map((membership) => membership.workspace_id)
-  const cookieWorkspaceId = await getActiveWorkspaceId()
-  const activeWorkspaceId = cookieWorkspaceId && membershipIds.includes(cookieWorkspaceId)
-    ? cookieWorkspaceId
-    : membershipIds[0]
+  // Resolve the active workspace through the shared resolver so the dashboard,
+  // sidebar switcher, team page and projects list all agree on the same one.
+  const activeWorkspaceId = await resolveActiveWorkspaceId()
 
   const { data: activeWorkspace } = activeWorkspaceId
     ? await supabase.from('workspaces').select('name').eq('id', activeWorkspaceId).single()

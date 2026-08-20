@@ -5,7 +5,8 @@ import { MobileNav } from '@/components/app-shell/mobile-nav'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getActiveFocusSession } from '@/app/actions/focus'
-import { getWorkspaces, getActiveWorkspaceId } from '@/app/actions/workspaces'
+import { getWorkspaces } from '@/app/actions/workspaces'
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { getRecentProjects } from '@/app/actions/projects'
 import { FocusTubeProvider } from '@/components/focus/focus-tube-provider'
 import { noIndexMetadata } from "@/lib/seo";
@@ -32,7 +33,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   // Fetch real workspaces and recent projects
   const workspaces = await getWorkspaces()
-  const activeWorkspaceId = await getActiveWorkspaceId()
+  // Same resolver every page uses, so the switcher highlights the workspace the
+  // pages are actually scoped to — even before the cookie has ever been set.
+  const activeWorkspaceId = await resolveActiveWorkspaceId()
   const recentProjects = await getRecentProjects()
 
   // Check for active pomodoro session

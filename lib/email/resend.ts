@@ -47,7 +47,9 @@ export async function sendWorkspaceInviteEmail({ to, inviteUrl, workspaceName }:
   const safeWorkspaceName = escapeHtml(workspaceName || 'your workspace')
   const safeInviteUrl = escapeHtml(inviteUrl)
 
-  const response = await fetch('https://api.resend.com/emails', {
+  let response: Response
+  try {
+    response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -77,6 +79,15 @@ export async function sendWorkspaceInviteEmail({ to, inviteUrl, workspaceName }:
       `,
     }),
   })
+  } catch (networkError) {
+    // A transient network failure reaching Resend must NOT throw out of the
+    // invite action: the invite row is already saved, so we degrade to the
+    // "email failed, share the link manually" path instead of a 500.
+    return {
+      sent: false,
+      error: `Could not reach the email service. ${networkError instanceof Error ? networkError.message : 'Network error'}`,
+    }
+  }
 
   if (!response.ok) {
     return { sent: false, error: `Resend could not send the invite email. ${await readResendError(response)}` }
@@ -98,7 +109,9 @@ export async function sendSignupConfirmationEmail({ to, confirmationUrl }: Signu
 
   const safeConfirmationUrl = escapeHtml(confirmationUrl)
 
-  const response = await fetch('https://api.resend.com/emails', {
+  let response: Response
+  try {
+    response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -128,6 +141,12 @@ export async function sendSignupConfirmationEmail({ to, confirmationUrl }: Signu
       `,
     }),
   })
+  } catch (networkError) {
+    return {
+      sent: false,
+      error: `Could not reach the email service. ${networkError instanceof Error ? networkError.message : 'Network error'}`,
+    }
+  }
 
   if (!response.ok) {
     return { sent: false, error: `Resend could not send the signup confirmation email. ${await readResendError(response)}` }
