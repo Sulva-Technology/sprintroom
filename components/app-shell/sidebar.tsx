@@ -2,21 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Activity, Timer, Settings, Plus, Repeat2, Wallet, MailPlus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { NAV_ITEMS, isNavActive } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { WorkspaceSwitcher } from './workspace-switcher'
 import { UserMenu } from './user-menu'
-
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/dashboard/rhythms', label: 'Weekly Rhythms', icon: Repeat2 },
-  { href: '/dashboard/focus', label: 'Focus Sessions', icon: Timer },
-  { href: '/dashboard/team', label: 'Team Pulse', icon: Activity },
-  { href: '/dashboard/invites', label: 'Invites', icon: MailPlus },
-  { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
-]
 
 export function Sidebar({
   user,
@@ -42,10 +32,9 @@ export function Sidebar({
       
       <div className="flex-1 overflow-y-auto custom-scrollbar py-4 px-3 flex flex-col gap-6">
         <nav className="space-y-1">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const Icon = item.icon
-            // Naive exact match or prefix
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const isActive = isNavActive(pathname, item.href)
             return (
               <Link
                 key={item.href}
@@ -68,7 +57,7 @@ export function Sidebar({
           <div className="px-1 text-sm">
             <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
               <span>Recent Projects</span>
-              <button className="hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"><Plus className="w-3.5 h-3.5"/></button>
+              <Link href="/dashboard/projects?new=true" aria-label="New project" className="hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary rounded p-0.5"><Plus className="w-3.5 h-3.5"/></Link>
             </div>
             <ul className="space-y-0.5">
               {displayProjects.map((proj: any) => (

@@ -2,26 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, FolderKanban, Activity, Repeat2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const navItems = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/dashboard/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/dashboard/rhythms', label: 'Rhythms', icon: Repeat2 },
-  { href: '/dashboard/team', label: 'Team', icon: Activity },
-  { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
-]
+import { mobileNavItems, isNavActive } from '@/lib/navigation'
 
 export function MobileNav() {
   const pathname = usePathname()
+  const navItems = mobileNavItems()
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 border-t border-border/40 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 z-30 pb-safe">
       <nav className="flex items-center justify-around h-full px-2">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+          const isActive = isNavActive(pathname, item.href)
           return (
             <Link
               key={item.href}

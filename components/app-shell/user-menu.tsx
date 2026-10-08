@@ -2,7 +2,7 @@
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ChevronDown, LogOut, Settings, UserCircle } from 'lucide-react'
+import { ChevronDown, LogOut, MailPlus, Settings, UserCircle } from 'lucide-react'
 import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
 
@@ -55,6 +55,13 @@ export function UserMenu({ user, profile }: { user: any, profile: any }) {
           >
             <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
             <span className="text-sm">Account Settings</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="rounded-lg h-9 px-3 cursor-pointer"
+            render={<Link href="/dashboard/invites" />}
+          >
+            <MailPlus className="mr-2 h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">Invites</span>
           </DropdownMenuItem>
         </div>
         <DropdownMenuSeparator className="bg-border/50 my-0"/>
