@@ -9,6 +9,8 @@ import { SilentWork } from '@/components/team/silent-work'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { Activity } from 'lucide-react'
 import { TeamPulseHeader } from '@/components/team/team-pulse-header'
+import { MembersPanel } from '@/components/team/members-panel'
+import type { WorkspaceRole } from '@/app/actions/roles'
 
 // Data Helpers
 function getInitials(name: string) {
@@ -50,7 +52,7 @@ export default async function TeamPulsePage() {
   // 2. Fetch the members of the active workspace only
   const { data: workspaceMembersRaw } = await supabase
     .from('workspace_members')
-    .select('user_id')
+    .select('user_id, role')
     .eq('workspace_id', activeWorkspaceId)
 
   const memberIds = Array.from(new Set(workspaceMembersRaw?.map(wm => wm.user_id).filter(Boolean) || []))
@@ -75,6 +77,7 @@ export default async function TeamPulsePage() {
         email: profile?.email || '',
         avatar_url: profile?.avatar_url,
         initials: getInitials(profile?.full_name),
+        role: wm.role as WorkspaceRole,
       })
     }
   })
@@ -86,14 +89,13 @@ export default async function TeamPulsePage() {
     .select('id, name')
     .eq('workspace_id', activeWorkspaceId)
 
-  const projectIds = projectsRaw?.map(p => p.id) || []
   const projectsMap = new Map(projectsRaw?.map(p => [p.id, p]) || [])
 
   // 4. Fetch Tasks
   const { data: tasksRaw } = await supabase
     .from('tasks')
     .select('*')
-    .in('project_id', projectIds)
+    .eq('workspace_id', activeWorkspaceId)
 
   const tasks = tasksRaw || []
 
@@ -240,6 +242,13 @@ export default async function TeamPulsePage() {
     <div className="flex flex-col pb-12 w-full mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <TeamPulseHeader workspaceId={activeWorkspaceId} canInvite={canInvite} />
 
+      <MembersPanel
+        workspaceId={activeWorkspaceId}
+        currentUserId={user.id}
+        actorRole={userRole as WorkspaceRole}
+        members={teamMembers.map((m: any) => ({ id: m.id, name: m.name, email: m.email, role: m.role }))}
+      />
+
       <TeamHealthCard stats={teamStats} insight={insightMsg} />
 
       <section>
@@ -267,7 +276,7 @@ export default async function TeamPulsePage() {
                {activityLog.map((log: any, idx) => (
                   <div key={idx} className="flex gap-4">
                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                       <span className="text-xs font-bold text-primary">{getInitials(log.user?.full_name)}</span>
+                       <span className="text-xs font-bold text-primary">{getInitials(log.user?.name)}</span>
                      </div>
                      <div>
                         <div className="flex items-baseline gap-2">
