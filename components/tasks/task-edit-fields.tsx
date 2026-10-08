@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { updateTask } from '@/app/actions/task-details'
-import { TASK_PRIORITIES, type TaskUpdate } from '@/lib/tasks/updatable-fields'
+import { TASK_PRIORITIES, TASK_STATUSES, type TaskUpdate } from '@/lib/tasks/updatable-fields'
 import { toDeadlineIso, dateInputFromDeadline } from '@/lib/tasks/deadline'
 
 export function TaskEditFields({
@@ -14,6 +14,7 @@ export function TaskEditFields({
   title,
   priority,
   deadline,
+  status,
   cycleId,
   cycleOptions,
   onSaved,
@@ -24,6 +25,7 @@ export function TaskEditFields({
   title: string
   priority: string
   deadline: string | null
+  status: string
   cycleId: string | null
   cycleOptions: { id: string; name: string }[]
   onSaved: () => void
@@ -69,10 +71,28 @@ export function TaskEditFields({
           className="mt-1"
         />
       </label>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <label className="text-xs font-semibold text-muted-foreground">
+          Status
+          <select
+            data-shortcut="status"
+            value={status}
+            disabled={saving}
+            onChange={(e) => save({ status: e.target.value as NonNullable<TaskUpdate['status']> })}
+            className={fieldClass}
+          >
+            {/* blocked needs a reason, so it stays on the board's Mark Blocked flow */}
+            {TASK_STATUSES.filter((s) => s !== 'blocked' || status === 'blocked').map((s) => (
+              <option key={s} value={s} disabled={s === 'blocked'}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="text-xs font-semibold text-muted-foreground">
           Priority
           <select
+            data-shortcut="priority"
             value={priority}
             disabled={saving}
             onChange={(e) => save({ priority: e.target.value as NonNullable<TaskUpdate['priority']> })}
@@ -88,6 +108,7 @@ export function TaskEditFields({
         <label className="text-xs font-semibold text-muted-foreground">
           Due
           <input
+            data-shortcut="due"
             type="date"
             value={dateInputFromDeadline(deadline)}
             disabled={saving}

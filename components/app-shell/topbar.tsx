@@ -16,13 +16,15 @@ export function Topbar({
   profile,
   activeFocus,
   workspaces,
-  activeWorkspaceId
+  activeWorkspaceId,
+  canEdit
 }: {
   user: any,
   profile: any,
   activeFocus: any,
   workspaces: any[],
-  activeWorkspaceId?: string
+  activeWorkspaceId?: string,
+  canEdit?: boolean
 }) {
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -37,7 +39,7 @@ export function Topbar({
       </div>
 
       <div className="flex-1 flex max-w-xl items-center relative">
-         <GlobalSearch />
+         <GlobalSearch canEdit={!!canEdit} />
       </div>
       
       <div className="flex items-center gap-3">

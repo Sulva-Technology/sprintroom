@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { getActiveFocusSession } from '@/app/actions/focus'
 import { getWorkspaces } from '@/app/actions/workspaces'
 import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
+import { canEditWorkspace } from '@/app/actions/roles'
 import { getRecentProjects } from '@/app/actions/projects'
 import { FocusTubeProvider } from '@/components/focus/focus-tube-provider'
 import { noIndexMetadata } from "@/lib/seo";
@@ -36,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // Same resolver every page uses, so the switcher highlights the workspace the
   // pages are actually scoped to — even before the cookie has ever been set.
   const activeWorkspaceId = await resolveActiveWorkspaceId()
+  const canEdit = activeWorkspaceId ? await canEditWorkspace(activeWorkspaceId) : false
   const recentProjects = await getRecentProjects()
 
   // Check for active pomodoro session
@@ -50,7 +52,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <Sidebar user={user} profile={profile} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} recentProjects={recentProjects} />
 
         <div className="flex flex-col flex-1 w-full min-w-0 relative">
-          <Topbar user={user} profile={profile} activeFocus={activeFocus} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
+          <Topbar user={user} profile={profile} activeFocus={activeFocus} workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} canEdit={canEdit} />
 
           <main className="flex-1 overflow-auto p-4 md:p-8 md:pt-4 outline-none pb-24 md:pb-8" tabIndex={-1}>
             <div className="max-w-6xl mx-auto">

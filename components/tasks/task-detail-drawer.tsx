@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Drawer,
@@ -37,6 +37,7 @@ import { getTaskDetails } from "@/app/actions/task-fetcher";
 import { assignOwner } from "@/app/actions/tasks";
 import { StartFocusButton } from "@/components/focus/start-focus-button";
 import { TaskEditFields } from "@/components/tasks/task-edit-fields";
+import { isTypingTarget, taskShortcutFor } from "@/lib/shortcuts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -135,6 +136,25 @@ export function TaskDetailDrawer({
       return () => window.clearTimeout(fetchTimer);
     }
   }, [fetchData, open, taskId]);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // s/a/p/d jump to status, assignee, priority and due date (never while typing).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
+      const shortcut = taskShortcutFor(e);
+      if (!shortcut) return;
+      const el = contentRef.current?.querySelector<HTMLElement>(`[data-shortcut="${shortcut}"]`);
+      if (!el) return;
+      e.preventDefault();
+      if (shortcut === "assignee") el.click();
+      else el.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   if (!open) return null;
 
@@ -235,7 +255,7 @@ export function TaskDetailDrawer({
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto px-4 md:px-8 pb-10">
+          <div ref={contentRef} className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto px-4 md:px-8 pb-10">
             {/* Header section (moved content) */}
             <div className="py-6 flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div>
@@ -248,7 +268,7 @@ export function TaskDetailDrawer({
                     <DropdownMenuTrigger
                       disabled={assigning}
                       render={
-                        <button className="flex items-center gap-1.5 text-sm font-medium ml-2 rounded-md px-2 py-1 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-60" />
+                        <button data-shortcut="assignee" className="flex items-center gap-1.5 text-sm font-medium ml-2 rounded-md px-2 py-1 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-60" />
                       }
                     >
                       {assigning ? (
@@ -315,6 +335,10 @@ export function TaskDetailDrawer({
               </div>
             </div>
 
+            <p className="text-xs text-muted-foreground mb-4">
+              Shortcuts: <kbd>S</kbd> status · <kbd>A</kbd> assignee · <kbd>P</kbd> priority · <kbd>D</kbd> due
+            </p>
+
             <TaskEditFields
               key={`${data.task.id}-${data.task.updated_at}`}
               taskId={taskId}
@@ -323,6 +347,7 @@ export function TaskDetailDrawer({
               title={data.task.title}
               priority={data.task.priority ?? "medium"}
               deadline={data.task.deadline}
+              status={data.task.status}
               cycleId={data.task.cycle_id ?? null}
               cycleOptions={data.cycles ?? []}
               onSaved={fetchData}
