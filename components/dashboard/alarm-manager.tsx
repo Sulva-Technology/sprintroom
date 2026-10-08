@@ -9,6 +9,8 @@ import {
   getRhythmNudgeSlot,
   localDateKey,
   rhythmNudgeStorageKey,
+  reminderFiredKey,
+  staleReminderKeys,
   type OpenRhythmTask,
 } from '@/lib/rhythm-nudge'
 
@@ -38,6 +40,13 @@ export function AlarmManager() {
 
   useEffect(() => {
     let cancelled = false
+
+    try {
+      const keys = Object.keys(localStorage)
+      for (const key of staleReminderKeys(keys, new Date())) localStorage.removeItem(key)
+    } catch {
+      // Storage unavailable — nothing to prune.
+    }
 
     const refresh = async () => {
       try {
@@ -77,14 +86,13 @@ export function AlarmManager() {
     const check = () => {
       const now = new Date()
       const current = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-      const dateKey = now.toISOString().slice(0, 10)
 
       for (const reminder of remindersRef.current) {
         if (!reminder.time) continue
         // Fire once the reminder time has been reached (with same-day catch-up).
         if (current < reminder.time) continue
 
-        const firedKey = `sprintroom-reminder-fired-${reminder.id}-${dateKey}`
+        const firedKey = reminderFiredKey(reminder.id, now)
         try {
           if (localStorage.getItem(firedKey)) continue
           localStorage.setItem(firedKey, '1')

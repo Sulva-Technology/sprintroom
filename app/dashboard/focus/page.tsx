@@ -163,9 +163,11 @@ export default async function FocusSessionsPage() {
                        )}
                     </div>
 
-                    <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-slate-400 hover:text-primary hover:bg-primary/5" render={<Link href={`/dashboard/projects/${task?.project_id}`} />}>
-                       <ArrowRight className="w-5 h-5" />
-                    </Button>
+                    {task?.project_id && (
+                      <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-slate-400 hover:text-primary hover:bg-primary/5" render={<Link href={`/dashboard/projects/${task.project_id}`} />}>
+                         <ArrowRight className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               )

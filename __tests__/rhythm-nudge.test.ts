@@ -4,6 +4,8 @@ import {
   getRhythmNudgeSlot,
   localDateKey,
   rhythmNudgeStorageKey,
+  reminderFiredKey,
+  staleReminderKeys,
 } from '@/lib/rhythm-nudge'
 
 function at(hour: number, minute = 0) {
@@ -67,5 +69,23 @@ describe('buildRhythmNudgeMessage', () => {
     ])
     expect(message.title).toBe('5 rhythm tasks still open')
     expect(message.body).toBe('Clear them before the day ends: A, B, C +2 more')
+  })
+})
+
+describe('reminder dedupe keys', () => {
+  it('uses the LOCAL calendar date, not the UTC one', () => {
+    // 23:30 local on 7 Oct. For anyone west of UTC, toISOString() is already 8 Oct.
+    const lateEvening = new Date(2026, 9, 7, 23, 30)
+    expect(reminderFiredKey('r1', lateEvening)).toBe('sprintroom-reminder-fired-r1-2026-10-07')
+  })
+
+  it('lists only reminder keys from previous days for pruning', () => {
+    const now = new Date(2026, 9, 8, 9, 0)
+    const keys = [
+      'sprintroom-reminder-fired-r1-2026-10-07',
+      'sprintroom-reminder-fired-r2-2026-10-08',
+      'sprintroom-notify-enabled',
+    ]
+    expect(staleReminderKeys(keys, now)).toEqual(['sprintroom-reminder-fired-r1-2026-10-07'])
   })
 })

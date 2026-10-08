@@ -60,3 +60,16 @@ export function buildRhythmNudgeMessage(openTasks: OpenRhythmTask[]): { title: s
     body: `Clear them before the day ends: ${names}${rest}`,
   }
 }
+
+const REMINDER_FIRED_PREFIX = 'sprintroom-reminder-fired-'
+
+/** localStorage key marking a reminder as fired today (device-local date). */
+export function reminderFiredKey(reminderId: string, now: Date): string {
+  return `${REMINDER_FIRED_PREFIX}${reminderId}-${localDateKey(now)}`
+}
+
+/** Reminder-fired keys from earlier days, safe to delete. */
+export function staleReminderKeys(keys: string[], now: Date): string[] {
+  const today = localDateKey(now)
+  return keys.filter((k) => k.startsWith(REMINDER_FIRED_PREFIX) && !k.endsWith(today))
+}
