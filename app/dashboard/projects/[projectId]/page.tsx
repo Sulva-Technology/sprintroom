@@ -11,6 +11,7 @@ import { CacheWriter } from '@/components/offline/cache-writer'
 import { canEditWorkspace, getWorkspaceRole } from '@/app/actions/roles'
 import { canEditProject, canDeleteProject } from '@/lib/projects/permissions'
 import { ProjectSettingsDialog } from './project-settings-dialog'
+import { dateKeyInTimeZone } from '@/lib/tasks/my-day'
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ projectId: string }> }) {
   const supabase = await createClient()
@@ -36,7 +37,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
     // Fetch project details
     const { data: fetchedProject, error: projectError } = await supabase
       .from('projects')
-      .select('*, tasks(id, title, description, status, owner_id, priority, deadline, blocked_reason)') // Optimized tasks selection
+      .select('*, tasks(id, title, description, status, owner_id, priority, deadline, blocked_reason, workspace_id, cycle_id, carry_over_count)') // Optimized tasks selection
       .eq('id', resolvedParams.projectId)
       .single();
 
@@ -89,6 +90,14 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
   const canEdit = await canEditWorkspace(project.workspace_id)
   const role = await getWorkspaceRole(project.workspace_id)
   const canManageProject = canEditProject(role, project.created_by ?? null, user.id)
+  const { data: viewerProfile } = await supabase.from('profiles').select('timezone').eq('id', user.id).single()
+  const todayKey = dateKeyInTimeZone(new Date(), viewerProfile?.timezone)
+  const { data: openCycles } = await supabase
+    .from('cycles')
+    .select('id, name')
+    .eq('workspace_id', project.workspace_id)
+    .is('completed_at', null)
+    .order('starts_on', { ascending: true })
 
   const totalTasks = tasks.length
   const doneTasks = tasks.filter((t: any) => t.status === 'done').length
@@ -160,7 +169,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
       {/* Board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 snap-x">
          <ErrorBoundary>
-            <BoardClient project={project} initialTasks={tasks} canEdit={canEdit} />
+            <BoardClient project={project} initialTasks={tasks} canEdit={canEdit} currentUserId={user.id} todayKey={todayKey} cycles={openCycles ?? []} />
          </ErrorBoundary>
       </div>
 

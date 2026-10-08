@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
 import { isPast } from 'date-fns'
 import { Timer, AlertCircle, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -15,7 +16,20 @@ function initialsOf(name?: string | null) {
   return name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
-export function TaskCard({ task, projectId, canEdit = true }: { task: any, projectId: string, canEdit?: boolean }) {
+export function TaskCard({
+  task,
+  projectId,
+  canEdit = true,
+  labels = [],
+  onMove,
+}: {
+  task: any
+  projectId: string
+  canEdit?: boolean
+  labels?: { id: string; name: string; color: string }[]
+  onMove?: (status: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: !canEdit })
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [focusing, setFocusing] = useState(false)
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== 'done'
@@ -39,11 +53,15 @@ export function TaskCard({ task, projectId, canEdit = true }: { task: any, proje
   return (
     <>
       <div 
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
         onClick={() => setDrawerOpen(true)}
         className={cn(
           "bg-white rounded-2xl p-4 shadow-sm border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 group cursor-pointer",
           task.status === 'blocked' ? "border-l-4 border-l-red-500 border-y-border border-r-border" : "border-border/60",
-          task.status === 'done' && "opacity-60 hover:opacity-100 bg-slate-50 border-transparent shadow-none"
+          task.status === 'done' && "opacity-60 hover:opacity-100 bg-slate-50 border-transparent shadow-none",
+          isDragging && "opacity-40"
         )}
       >
         
@@ -52,10 +70,11 @@ export function TaskCard({ task, projectId, canEdit = true }: { task: any, proje
           <div className="flex gap-1.5 flex-wrap">
             {task.priority === 'high' && <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">High</span>}
             {isOverdue && <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md"><AlertCircle className="w-3 h-3"/> Overdue</span>}
+            {task.carry_over_count > 0 && <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">Carried ×{task.carry_over_count}</span>}
           </div>
           {canEdit && (
             <div onClick={e => e.stopPropagation()}>
-              <StatusMenu task={task} projectId={projectId} />
+              <StatusMenu task={task} projectId={projectId} onMove={onMove} />
             </div>
           )}
         </div>

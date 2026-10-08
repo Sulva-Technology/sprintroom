@@ -14,11 +14,17 @@ import { MarkBlockedDialog } from './mark-blocked-dialog'
 
 const STATUSES = ['backlog', 'today', 'doing', 'review', 'done']
 
-export function StatusMenu({ task, projectId }: { task: any, projectId: string }) {
+export function StatusMenu({ task, projectId, onMove }: { task: any, projectId: string, onMove?: (status: string) => void }) {
   const [isUpdating, setIsUpdating] = useState(false)
   const [showBlockedDialog, setShowBlockedDialog] = useState(false)
 
   const handleStatusUpdate = async (status: string) => {
+    // The board passes onMove so the menu shares its optimistic path (and its
+    // Mark Blocked reason dialog). Without it, keep the standalone behaviour.
+    if (onMove) {
+      onMove(status)
+      return
+    }
     if (status === 'blocked') {
       setShowBlockedDialog(true)
       return
