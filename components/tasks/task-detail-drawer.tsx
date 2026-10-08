@@ -37,6 +37,7 @@ import { getTaskDetails } from "@/app/actions/task-fetcher";
 import { assignOwner } from "@/app/actions/tasks";
 import { StartFocusButton } from "@/components/focus/start-focus-button";
 import { TaskEditFields } from "@/components/tasks/task-edit-fields";
+import { LabelPicker } from "@/components/tasks/label-picker";
 import { isTypingTarget, taskShortcutFor } from "@/lib/shortcuts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -351,6 +352,15 @@ export function TaskDetailDrawer({
               cycleId={data.task.cycle_id ?? null}
               cycleOptions={data.cycles ?? []}
               onSaved={fetchData}
+            />
+
+            <LabelPicker
+              taskId={taskId}
+              projectId={projectId}
+              workspaceId={data.task.workspace_id}
+              labels={data.labels ?? []}
+              labelIds={data.labelIds ?? []}
+              onChanged={fetchData}
             />
 
             {/* Description */}

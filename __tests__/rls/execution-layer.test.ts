@@ -211,3 +211,31 @@ describe('notifications', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('labels', () => {
+  it('editors can create a label; viewers cannot', async () => {
+    gate()
+    const { data, error } = await cli.member.from('labels').insert({ workspace_id: row.wsW, name: 'bug', color: 'red' }).select('id').single()
+    expect(error).toBeNull()
+    row.labelW = data!.id
+    const denied = await cli.viewer.from('labels').insert({ workspace_id: row.wsW, name: 'nope' })
+    expect(denied.error).not.toBeNull()
+  })
+
+  it('a label from another workspace cannot be attached', async () => {
+    gate()
+    const { data: foreign } = await admin.from('labels').insert({ workspace_id: row.wsX, name: 'foreign' }).select('id').single()
+    const { error } = await cli.member.from('task_labels').insert({ task_id: row.taskW, label_id: foreign!.id })
+    expect(error).not.toBeNull()
+  })
+
+  it('members can attach their own workspace label; outsiders cannot see it', async () => {
+    gate()
+    const { error } = await cli.member.from('task_labels').insert({ task_id: row.taskW, label_id: row.labelW })
+    expect(error).toBeNull()
+    const { data } = await cli.outsider.from('task_labels').select('task_id').eq('task_id', row.taskW)
+    expect(data ?? []).toHaveLength(0)
+    const { data: labels } = await cli.outsider.from('labels').select('id').eq('workspace_id', row.wsW)
+    expect(labels ?? []).toHaveLength(0)
+  })
+})

@@ -37,7 +37,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
     // Fetch project details
     const { data: fetchedProject, error: projectError } = await supabase
       .from('projects')
-      .select('*, tasks(id, title, description, status, owner_id, priority, deadline, blocked_reason, workspace_id, cycle_id, carry_over_count)') // Optimized tasks selection
+      .select('*, tasks(id, title, description, status, owner_id, priority, deadline, blocked_reason, workspace_id, cycle_id, carry_over_count, task_labels(label_id))') // Optimized tasks selection
       .eq('id', resolvedParams.projectId)
       .single();
 
@@ -84,6 +84,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
   const tasks = rawTasks.map((t: any) => ({
     ...t,
     owner: t.owner_id ? ownerById.get(t.owner_id) || null : null,
+    label_ids: (t.task_labels ?? []).map((x: any) => x.label_id),
   }))
 
   // Viewers get a read-only board (RLS enforces it; this hides the controls).
@@ -98,6 +99,11 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
     .eq('workspace_id', project.workspace_id)
     .is('completed_at', null)
     .order('starts_on', { ascending: true })
+  const { data: workspaceLabels } = await supabase
+    .from('labels')
+    .select('id, name, color')
+    .eq('workspace_id', project.workspace_id)
+    .order('name')
 
   const totalTasks = tasks.length
   const doneTasks = tasks.filter((t: any) => t.status === 'done').length
@@ -169,7 +175,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
       {/* Board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 snap-x">
          <ErrorBoundary>
-            <BoardClient project={project} initialTasks={tasks} canEdit={canEdit} currentUserId={user.id} todayKey={todayKey} cycles={openCycles ?? []} />
+            <BoardClient project={project} initialTasks={tasks} canEdit={canEdit} currentUserId={user.id} todayKey={todayKey} cycles={openCycles ?? []} labels={workspaceLabels ?? []} />
          </ErrorBoundary>
       </div>
 

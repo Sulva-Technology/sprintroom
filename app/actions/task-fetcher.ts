@@ -37,6 +37,11 @@ export async function getTaskDetails(taskId: string) {
     .is('completed_at', null)
     .order('starts_on', { ascending: true })
 
+  const [{ data: labelRows }, { data: taskLabelRows }] = await Promise.all([
+    supabase.from('labels').select('id, name, color').eq('workspace_id', (task.projects as any)?.workspace_id).order('name'),
+    supabase.from('task_labels').select('label_id').eq('task_id', taskId),
+  ])
+
   // Resolve real names/avatars for everyone referenced (owner, members, comment
   // authors, activity actors) in one query. Previously these were never joined,
   // so the UI showed generic "Assigned"/"Member" placeholders.
@@ -60,6 +65,8 @@ export async function getTaskDetails(taskId: string) {
     focusSessions: focusSessions || [],
     activityLogs: (activityLogs || []).map((a: any) => ({ ...a, actor: profileById.get(a.user_id) || null })),
     cycles: cycleRows || [],
+    labels: labelRows || [],
+    labelIds: (taskLabelRows || []).map((r: any) => r.label_id),
     members: (memberRows || []).map((m: any) => {
       const p = profileById.get(m.user_id)
       return {
