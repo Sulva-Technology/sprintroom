@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { ACTIVE_WORKSPACE_COOKIE, ACTIVE_WORKSPACE_COOKIE_OPTIONS } from '@/lib/workspace/active-workspace'
 
 const inviteActionSchema = z.object({
   inviteId: z.string().uuid(),
@@ -41,11 +42,7 @@ export async function acceptWorkspaceInvite(formData: FormData) {
 
   if (workspaceId) {
     const cookieStore = await cookies()
-    cookieStore.set('active_workspace_id', workspaceId, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-      sameSite: 'lax',
-    })
+    cookieStore.set(ACTIVE_WORKSPACE_COOKIE, workspaceId, ACTIVE_WORKSPACE_COOKIE_OPTIONS)
   }
 
   revalidatePath('/dashboard', 'layout')

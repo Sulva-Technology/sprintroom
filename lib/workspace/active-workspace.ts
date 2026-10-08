@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 
 export const ACTIVE_WORKSPACE_COOKIE = 'active_workspace_id'
 
+/** Options for every write of the active-workspace cookie. Nothing on the client
+ *  reads it (the server resolves it), so it is httpOnly. */
+export const ACTIVE_WORKSPACE_COOKIE_OPTIONS = {
+  path: '/',
+  maxAge: 60 * 60 * 24 * 30, // 30 days
+  sameSite: 'lax' as const,
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+}
+
 /**
  * Pure resolution of the active workspace id.
  *
