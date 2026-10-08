@@ -8,7 +8,9 @@ import { BoardClient } from './board-client'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { RecurringTaskDialog } from './recurring-task-dialog'
 import { CacheWriter } from '@/components/offline/cache-writer'
-import { canEditWorkspace } from '@/app/actions/roles'
+import { canEditWorkspace, getWorkspaceRole } from '@/app/actions/roles'
+import { canEditProject, canDeleteProject } from '@/lib/projects/permissions'
+import { ProjectSettingsDialog } from './project-settings-dialog'
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ projectId: string }> }) {
   const supabase = await createClient()
@@ -85,6 +87,8 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
 
   // Viewers get a read-only board (RLS enforces it; this hides the controls).
   const canEdit = await canEditWorkspace(project.workspace_id)
+  const role = await getWorkspaceRole(project.workspace_id)
+  const canManageProject = canEditProject(role, project.created_by ?? null, user.id)
 
   const totalTasks = tasks.length
   const doneTasks = tasks.filter((t: any) => t.status === 'done').length
@@ -138,6 +142,12 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ p
            {/* Actions */}
            <div className="flex items-center gap-3">
              {canEdit && <RecurringTaskDialog projectId={project.id} />}
+             {canManageProject && (
+               <ProjectSettingsDialog
+                 project={{ id: project.id, name: project.name, description: project.description ?? null }}
+                 canDelete={canDeleteProject(role)}
+               />
+             )}
              <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="rounded-full shadow-sm bg-white hover:bg-slate-50 border-border h-9">
                  <Activity className="w-4 h-4 mr-2" />
                  View Pulse

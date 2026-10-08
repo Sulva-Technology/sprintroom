@@ -102,3 +102,47 @@ export async function getWorkspaceProjects(workspaceId: string) {
   return data || []
 }
 
+
+type ProjectResult = { success: true } | { success: false; error: string }
+
+const updateProjectSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  description: z.string().max(2000).optional(),
+})
+
+export async function updateProject(id: string, data: { name: string; description?: string }): Promise<ProjectResult> {
+  const parsed = updateProjectSchema.safeParse({ id, ...data })
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' }
+
+  const supabase = await createClient()
+  const { data: rows, error } = await supabase
+    .from('projects')
+    .update({
+      name: parsed.data.name,
+      description: parsed.data.description?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', parsed.data.id)
+    .select('id')
+  if (error) return { success: false, error: error.message }
+  if (!rows?.length) return { success: false, error: 'Only workspace admins or the project creator can edit this project' }
+
+  revalidatePath(`/dashboard/projects/${parsed.data.id}`)
+  revalidatePath('/dashboard/projects')
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}
+
+export async function deleteProject(id: string): Promise<ProjectResult> {
+  if (!z.string().uuid().safeParse(id).success) return { success: false, error: 'Invalid input' }
+
+  const supabase = await createClient()
+  const { data: rows, error } = await supabase.from('projects').delete().eq('id', id).select('id')
+  if (error) return { success: false, error: error.message }
+  if (!rows?.length) return { success: false, error: 'Only workspace admins can delete projects' }
+
+  revalidatePath('/dashboard/projects')
+  revalidatePath('/dashboard', 'layout')
+  return { success: true }
+}
