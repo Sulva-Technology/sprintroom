@@ -195,30 +195,3 @@ export async function deleteRecurringTaskRule(ruleId: string) {
   return { success: true }
 }
 
-/**
- * Fetch upcoming focus schedules for the current user
- */
-export async function getUpcomingSchedules() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) return []
-
-  const { data, error } = await supabase
-    .from('focus_schedules')
-    .select(`
-      *,
-      task:tasks(title)
-    `)
-    .eq('user_id', user.id)
-    .eq('status', 'pending')
-    .gte('start_time', new Date().toISOString())
-    .order('start_time', { ascending: true })
-
-  if (error) {
-    console.error('Error fetching schedules:', error)
-    return []
-  }
-
-  return data
-}
