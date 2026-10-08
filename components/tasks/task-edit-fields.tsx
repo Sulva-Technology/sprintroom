@@ -14,6 +14,8 @@ export function TaskEditFields({
   title,
   priority,
   deadline,
+  cycleId,
+  cycleOptions,
   onSaved,
 }: {
   taskId: string
@@ -22,6 +24,8 @@ export function TaskEditFields({
   title: string
   priority: string
   deadline: string | null
+  cycleId: string | null
+  cycleOptions: { id: string; name: string }[]
   onSaved: () => void
 }) {
   const [draftTitle, setDraftTitle] = useState(title)
@@ -50,8 +54,8 @@ export function TaskEditFields({
   const fieldClass = 'mt-1 block h-9 w-full rounded-lg border border-border bg-white px-2 text-sm'
 
   return (
-    <div className="mb-6 grid items-end gap-3 sm:grid-cols-[1fr_auto_auto]">
-      <label className="text-xs font-semibold text-muted-foreground">
+    <div className="mb-6 space-y-3">
+      <label className="block text-xs font-semibold text-muted-foreground">
         Title
         <Input
           value={draftTitle}
@@ -65,31 +69,49 @@ export function TaskEditFields({
           className="mt-1"
         />
       </label>
-      <label className="text-xs font-semibold text-muted-foreground">
-        Priority
-        <select
-          value={priority}
-          disabled={saving}
-          onChange={(e) => save({ priority: e.target.value as NonNullable<TaskUpdate['priority']> })}
-          className={fieldClass}
-        >
-          {TASK_PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="text-xs font-semibold text-muted-foreground">
-        Due
-        <input
-          type="date"
-          value={dateInputFromDeadline(deadline)}
-          disabled={saving}
-          onChange={(e) => save({ deadline: toDeadlineIso(e.target.value) })}
-          className={fieldClass}
-        />
-      </label>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <label className="text-xs font-semibold text-muted-foreground">
+          Priority
+          <select
+            value={priority}
+            disabled={saving}
+            onChange={(e) => save({ priority: e.target.value as NonNullable<TaskUpdate['priority']> })}
+            className={fieldClass}
+          >
+            {TASK_PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">
+          Due
+          <input
+            type="date"
+            value={dateInputFromDeadline(deadline)}
+            disabled={saving}
+            onChange={(e) => save({ deadline: toDeadlineIso(e.target.value) })}
+            className={fieldClass}
+          />
+        </label>
+        <label className="text-xs font-semibold text-muted-foreground">
+          Cycle
+          <select
+            value={cycleId ?? ''}
+            disabled={saving}
+            onChange={(e) => save({ cycle_id: e.target.value || null })}
+            className={fieldClass}
+          >
+            <option value="">No cycle</option>
+            {cycleOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
     </div>
   )
 }

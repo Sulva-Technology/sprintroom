@@ -90,3 +90,12 @@ describe('pickUpdatableTaskFields', () => {
     }
   })
 })
+
+describe('cycle_id is updatable', () => {
+  it('accepts a uuid or null and rejects garbage', () => {
+    const id = '44444444-4444-4444-8444-444444444444'
+    expect(pickUpdatableTaskFields({ cycle_id: id })).toEqual({ ok: true, data: { cycle_id: id } })
+    expect(pickUpdatableTaskFields({ cycle_id: null })).toEqual({ ok: true, data: { cycle_id: null } })
+    expect(pickUpdatableTaskFields({ cycle_id: 'nope' }).ok).toBe(false)
+  })
+})

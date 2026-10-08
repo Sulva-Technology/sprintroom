@@ -8,6 +8,7 @@ import {
   Settings,
   MailPlus,
   Menu,
+  Target,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -21,8 +22,9 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; mobile: b
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: House, mobile: true },
   { href: '/dashboard/projects', label: 'Projects', icon: FolderKanban, mobile: true },
+  { href: '/dashboard/cycle', label: 'Cycle', icon: Target, mobile: true },
   { href: '/dashboard/team', label: 'Team', icon: Users, mobile: true },
-  { href: '/dashboard/rhythms', label: 'Rhythms', icon: Repeat2, mobile: true },
+  { href: '/dashboard/rhythms', label: 'Rhythms', icon: Repeat2, mobile: false },
   { href: '/dashboard/focus', label: 'Focus', icon: Timer, mobile: false },
   { href: '/dashboard/finances', label: 'Finances', icon: Wallet, mobile: false },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, mobile: false },

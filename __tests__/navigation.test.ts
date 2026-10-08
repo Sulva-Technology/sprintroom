@@ -25,4 +25,15 @@ describe('navigation', () => {
     expect(isNavActive('/dashboard/projects/abc', '/dashboard/projects')).toBe(true)
     expect(isNavActive('/dashboard/projectsx', '/dashboard/projects')).toBe(false)
   })
+
+  it('puts Cycle in the mobile bar and moves Rhythms to More', () => {
+    expect(mobileNavItems().map((i) => i.href)).toEqual([
+      '/dashboard',
+      '/dashboard/projects',
+      '/dashboard/cycle',
+      '/dashboard/team',
+      '/dashboard/more',
+    ])
+    expect(moreNavItems().map((i) => i.href)).toContain('/dashboard/rhythms')
+  })
 })

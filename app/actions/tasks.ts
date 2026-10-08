@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { pickDefaultProjectId } from '@/lib/tasks/default-project'
 import { toDeadlineIso } from '@/lib/tasks/deadline'
+import { currentCycle } from '@/lib/cycles/cycle'
+import { dateKeyInTimeZone } from '@/lib/tasks/my-day'
 
 const updateTaskStatusSchema = z.object({
   id: z.string().uuid(),
@@ -146,7 +148,8 @@ const createTaskSchema = z.object({
   owner_id: z.string().uuid().nullable().optional(),
   priority: z.string().optional(),
   deadline: z.string().optional(),
-  estimate_pomodoros: z.number().int().min(0).optional()
+  estimate_pomodoros: z.number().int().min(0).optional(),
+  cycle_id: z.string().uuid().nullable().optional(),
 })
 
 export async function createTask(data: any) {
@@ -175,6 +178,9 @@ export async function createTask(data: any) {
     priority: validated.data.priority || 'medium',
     deadline: validated.data.deadline ? toDeadlineIso(validated.data.deadline) : null,
     estimate_pomodoros: validated.data.estimate_pomodoros || 0,
+    // Only sent when set, so creating tasks keeps working on a DB that has not
+    // had the cycles migration pushed yet (an unknown column is a PGRST204).
+    ...(validated.data.cycle_id ? { cycle_id: validated.data.cycle_id } : {}),
     // NOTE: `tasks` has no `user_id` column — authorship is `created_by`
     // (`owner_id` is the assignee). Sending user_id made every insert fail with
     // PGRST204 "Could not find the 'user_id' column of 'tasks'".
@@ -259,5 +265,13 @@ export async function quickAddTask(title: string) {
     projectId = created.id as string
   }
 
-  return createTask({ project_id: projectId, title: validated.data.title, status: 'today', owner_id: user.id })
+  const { data: profile } = await supabase.from('profiles').select('timezone').eq('id', user.id).single()
+  const { data: openCycles } = await supabase
+    .from('cycles')
+    .select('id, starts_on, ends_on, completed_at')
+    .eq('workspace_id', workspaceId)
+    .is('completed_at', null)
+  const running = currentCycle(openCycles ?? [], dateKeyInTimeZone(new Date(), profile?.timezone))
+
+  return createTask({ project_id: projectId, title: validated.data.title, status: 'today', owner_id: user.id, cycle_id: running?.id ?? null })
 }

@@ -323,6 +323,8 @@ export function TaskDetailDrawer({
               title={data.task.title}
               priority={data.task.priority ?? "medium"}
               deadline={data.task.deadline}
+              cycleId={data.task.cycle_id ?? null}
+              cycleOptions={data.cycles ?? []}
               onSaved={fetchData}
             />
 

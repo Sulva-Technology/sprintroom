@@ -10,6 +10,8 @@ npx supabase link --project-ref <REF>
 npx supabase db push
 ```
 
+Push migrations **before** deploying the app: the app reads new columns (e.g. `tasks.cycle_id`) and tables (`cycles`, `notifications`, `labels`).
+
 `db push` applies every migration not yet on the remote DB. Until it runs, role-based permissions, focus pause, scheduled-session auto-start and the realtime/search_path fixes are inactive.
 
 ## 2. Keys
@@ -75,7 +77,7 @@ $$);
 select jobname, schedule, active from cron.job order by jobname;
 ```
 
-Expected: the three jobs above, plus the DB-native scheduled-focus job from migration `20260722110000`, all `active = true`.
+Expected: the three jobs above plus the DB-native jobs from migrations (`process-due-focus-schedules`, `rollover-ended-cycles`), all `active = true`.
 
 ## 5. Auth redirect
 

@@ -13,6 +13,9 @@ import { z } from 'zod'
  *
  * Deliberately excluded: `id`, `workspace_id`, `project_id`, `created_by`,
  * `owner_id` (has its own action, `assignOwner`), `created_at`.
+ *
+ * `cycle_id` is writable; the `enforce_task_cycle_workspace` trigger rejects a
+ * cycle from another workspace.
  */
 export const TASK_UPDATABLE_FIELDS = [
   'title',
@@ -23,6 +26,7 @@ export const TASK_UPDATABLE_FIELDS = [
   'estimate_pomodoros',
   'blocked_reason',
   'last_progress_note',
+  'cycle_id',
 ] as const
 
 export type TaskUpdatableField = (typeof TASK_UPDATABLE_FIELDS)[number]
@@ -42,6 +46,7 @@ export const taskUpdateSchema = z
     estimate_pomodoros: z.number().int().min(0).max(1000),
     blocked_reason: z.string().max(2000).nullable(),
     last_progress_note: z.string().max(5000).nullable(),
+    cycle_id: z.string().uuid().nullable(),
   })
   .partial()
   .strict()
