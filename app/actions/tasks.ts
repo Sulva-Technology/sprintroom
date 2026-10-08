@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
+import { pickDefaultProjectId } from '@/lib/tasks/default-project'
 
 const updateTaskStatusSchema = z.object({
   id: z.string().uuid(),
@@ -190,4 +192,46 @@ export async function deleteTask(id: string, projectId?: string) {
   revalidatePath('/dashboard/projects')
   revalidatePath('/dashboard')
   return { success: true }
+}
+
+const quickAddSchema = z.object({ title: z.string().trim().min(1, 'Title is required').max(200) })
+
+/**
+ * Add a task without choosing a project: it goes to the active workspace's
+ * General project (created if the workspace has no projects), assigned to me,
+ * status 'today' — so it shows up on Home immediately.
+ */
+export async function quickAddTask(title: string) {
+  const validated = quickAddSchema.safeParse({ title })
+  if (!validated.success) {
+    return { success: false as const, error: { message: validated.error.issues[0]?.message ?? 'Invalid input' } }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false as const, error: { message: 'Not authenticated' } }
+
+  const workspaceId = await resolveActiveWorkspaceId()
+  if (!workspaceId) return { success: false as const, error: { message: 'Create or join a workspace first' } }
+
+  const { data: projects } = await supabase
+    .from('projects')
+    .select('id, name, created_at')
+    .eq('workspace_id', workspaceId)
+
+  let projectId = pickDefaultProjectId(projects ?? [])
+
+  if (!projectId) {
+    const { data: created, error } = await supabase
+      .from('projects')
+      .insert({ workspace_id: workspaceId, name: 'General', description: 'Default project for this workspace', created_by: user.id })
+      .select('id')
+      .single()
+    if (error || !created) {
+      return { success: false as const, error: { message: error?.message ?? 'Could not create a default project' } }
+    }
+    projectId = created.id as string
+  }
+
+  return createTask({ project_id: projectId, title: validated.data.title, status: 'today', owner_id: user.id })
 }

@@ -1,226 +1,98 @@
-import { createClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
-import { Plus, Timer, Zap, CheckCircle2, ShieldAlert, ArrowRight, Activity, Calendar } from 'lucide-react'
 import Link from 'next/link'
-import { StatCard } from '@/components/dashboard/stat-card'
-import { FocusScoreRing } from '@/components/dashboard/focus-score-ring'
-import { MyFocusQueue } from '@/components/dashboard/my-focus-queue'
-import { ActiveNow } from '@/components/dashboard/active-now'
-import { BlockersPanel } from '@/components/dashboard/blockers-panel'
-import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { format } from 'date-fns'
-import { StartFocusButton } from '@/components/dashboard/start-focus-button'
+import { MailPlus, Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
 import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
+import { canEditWorkspace } from '@/app/actions/roles'
+import { groupMyDay, dateKeyInTimeZone, type MyDayTask } from '@/lib/tasks/my-day'
+import { MyDayList } from '@/components/home/my-day-list'
+import { QuickAddTask } from '@/components/home/quick-add-task'
+import { StartFocusButton } from '@/components/dashboard/start-focus-button'
+import { Button } from '@/components/ui/button'
 
-export default async function DashboardPage() {
+/** Home = My Day. Only my work; team views live on /dashboard/team. */
+export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (!user) return null
 
   const now = new Date()
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
-  const tomorrowStart = new Date(todayStart)
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+  const workspaceId = await resolveActiveWorkspaceId()
 
-  // Resolve the active workspace through the shared resolver so the dashboard,
-  // sidebar switcher, team page and projects list all agree on the same one.
-  const activeWorkspaceId = await resolveActiveWorkspaceId()
+  const { data: profile } = await supabase.from('profiles').select('full_name, timezone').eq('id', user.id).single()
+  const todayKey = dateKeyInTimeZone(now, profile?.timezone)
 
-  const { data: activeWorkspace } = activeWorkspaceId
-    ? await supabase.from('workspaces').select('name').eq('id', activeWorkspaceId).single()
-    : { data: null }
-  const activeWorkspaceName = activeWorkspace?.name ?? 'Workspace'
-
-  const { data: projectsRaw } = activeWorkspaceId
-    ? await supabase.from('projects').select('id').eq('workspace_id', activeWorkspaceId)
-    : { data: [] }
-
-  const projects = projectsRaw || []
-  const projectIds = projects.map((project) => project.id) || []
-
-  const { data: tasksRaw } = projectIds.length > 0
-    ? await supabase
+  const tasksQuery: PromiseLike<{ data: any[] | null }> = workspaceId
+    ? supabase
         .from('tasks')
-        .select('id, title, description, status, owner_id, deadline, updated_at, blocked_reason, project_id')
-        .in('project_id', projectIds)
-    : { data: [] }
+        .select('id, title, status, priority, deadline, project_id, owner_id, created_by, projects(name)')
+        .eq('workspace_id', workspaceId)
+        .neq('status', 'done')
+        .or(`owner_id.eq.${user.id},and(owner_id.is.null,created_by.eq.${user.id})`)
+    : Promise.resolve({ data: [] })
 
-  const tasks = tasksRaw || []
-  const taskIds = tasks.map((task) => task.id)
+  const [tasksRes, focusRes, invitesRes, canEdit] = await Promise.all([
+    tasksQuery,
+    supabase
+      .from('focus_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .gte('started_at', `${todayKey}T00:00:00Z`),
+    supabase.rpc('get_my_workspace_invites'),
+    workspaceId ? canEditWorkspace(workspaceId) : Promise.resolve(false),
+  ])
 
-  const { data: focusSessionsRaw } = taskIds.length > 0
-    ? await supabase
-        .from('focus_sessions')
-        .select('id, user_id, task_id, status, started_at, duration_minutes, progress_note, distractions_count')
-        .in('task_id', taskIds)
-        .gte('started_at', todayStart.toISOString())
-    : { data: [] }
+  const tasks: MyDayTask[] = (tasksRes.data ?? []).map((t: any) => ({
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    priority: t.priority,
+    deadline: t.deadline,
+    project_id: t.project_id,
+    project_name: (Array.isArray(t.projects) ? t.projects[0]?.name : t.projects?.name) ?? null,
+    owner_id: t.owner_id,
+    created_by: t.created_by,
+  }))
 
-  const focusSessions = focusSessionsRaw || []
-
-  const memberIds = Array.from(new Set([
-    user.id,
-    ...tasks.map((task) => task.owner_id).filter(Boolean),
-    ...focusSessions.map((session) => session.user_id).filter(Boolean),
-  ]))
-
-  const { data: profilesRaw } = memberIds.length > 0
-    ? await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, email')
-        .in('id', memberIds)
-    : { data: [] }
-  const profilesById = new Map((profilesRaw || []).map((profile: any) => [profile.id, profile]))
-  const tasksById = new Map(tasks.map((task) => [task.id, task]))
-
-  const completedSessions = focusSessions.filter((session) => session.status === 'completed').length
-  const tasksMoved = tasks.filter((task) => new Date(task.updated_at) >= todayStart).length
-  const activeSessions = focusSessions
-    .filter((session) => session.status === 'active')
-    .map((session) => ({
-      ...session,
-      user: profilesById.get(session.user_id),
-      task: tasksById.get(session.task_id),
-    }))
-
-  const blockers = tasks
-    .filter((task) => task.status === 'blocked')
-    .map((task) => ({
-      ...task,
-      assignee: task.owner_id ? profilesById.get(task.owner_id) : null,
-    }))
-
-  const overdue = tasks.filter((task) => task.status !== 'done' && task.deadline && new Date(task.deadline) < now).length
-  const dueToday = tasks.filter((task) => {
-    if (task.status === 'done' || !task.deadline) return false
-    const deadline = new Date(task.deadline)
-    return deadline >= todayStart && deadline < tomorrowStart
-  }).length
-
-  const stats = {
-    completedSessions,
-    tasksMoved,
-    activeNow: activeSessions.length,
-    blockers: blockers.length,
-    overdue,
-    dueToday,
-  }
-
-  const scoreRaw = (stats.completedSessions * 10) + (stats.tasksMoved * 8) - (stats.blockers * 7) - (stats.overdue * 10)
-  const focusScore = Math.max(0, Math.min(100, scoreRaw))
-
-  const myQueue = tasks.filter((task) => task.owner_id === user.id && ['today', 'doing'].includes(task.status))
-
-  const recentActivity = focusSessions
-    .filter((session) => session.status === 'completed')
-    .slice(0, 6)
-    .map((session) => ({
-      user: profilesById.get(session.user_id),
-      task: tasksById.get(session.task_id),
-      notes: session.progress_note,
-    }))
-
-  const todayStr = format(new Date(), 'EEEE, MMMM do')
+  const { overdue, today, upNext } = groupMyDay(tasks, user.id, todayKey)
+  const focusToday = focusRes.count ?? 0
+  const pendingInvites = ((invitesRes.data as { status: string }[] | null) ?? []).filter((i) => i.status === 'pending').length
+  const firstName = profile?.full_name?.split(' ')[0]
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12 w-full mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="mx-auto w-full max-w-3xl space-y-8 pb-12">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground mb-1">Today&apos;s Execution</h1>
-          <p className="text-muted-foreground font-medium text-sm md:text-base">{todayStr} · {activeWorkspaceName}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{firstName ? `Hi ${firstName}` : 'My Day'}</h1>
+          <p className="text-sm text-muted-foreground">
+            {format(now, 'EEEE, MMMM do')} · {today.length} for today · {focusToday} focus session{focusToday === 1 ? '' : 's'} done
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="rounded-full shadow-sm bg-white hover:bg-slate-50 border-border h-9">
-              <Activity className="w-4 h-4 mr-2" />
-              Team Pulse
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" render={<Link href="/dashboard/team" />} className="h-9 rounded-full bg-white">
+            <Users className="mr-2 h-4 w-4" />
+            Team
           </Button>
-<StartFocusButton />
+          <StartFocusButton />
         </div>
-      </div>
+      </header>
 
-      {/* Hero Dashboard Card */}
-      <div className="bg-white border border-border/50 rounded-3xl p-6 lg:p-8 shadow-sm flex flex-col md:flex-row items-center gap-8 md:gap-12 relative overflow-hidden">
-        {/* Subtle background decoration */}
-        <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      {pendingInvites > 0 && (
+        <Link
+          href="/dashboard/invites"
+          className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-primary"
+        >
+          <MailPlus className="h-4 w-4" />
+          You have {pendingInvites} pending workspace invite{pendingInvites === 1 ? '' : 's'}. Review
+        </Link>
+      )}
 
-        <div className="shrink-0 relative z-10">
-          <FocusScoreRing score={focusScore} size={140} />
-        </div>
+      {canEdit && <QuickAddTask />}
 
-        <div className="flex-1 text-center md:text-left relative z-10">
-          <h2 className="text-2xl font-bold tracking-tight mb-2 text-foreground">
-            Your team completed <span className="text-primary">{stats.completedSessions} focus sessions</span> and moved <span className="text-primary">{stats.tasksMoved} tasks</span> today.
-          </h2>
-          <p className="text-muted-foreground mb-6 font-medium">Keep the momentum going. Aim for a score above 80 before you sign off.</p>
-
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                {stats.activeNow} Active now
-             </div>
-             {stats.blockers > 0 && (
-               <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-full px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm">
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  {stats.blockers} Blocked
-               </div>
-             )}
-             {stats.overdue > 0 && (
-               <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-full px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {stats.overdue} Overdue
-               </div>
-             )}
-          </div>
-        </div>
-
-        <div className="hidden lg:flex flex-col items-end justify-center shrink-0 border-l border-border/50 pl-8 relative z-10">
-             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Team Target</span>
-             <span className="text-4xl font-black text-slate-200">100</span>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Focus Sessions" value={stats.completedSessions} icon={CheckCircle2} bgAccentClass="bg-emerald-100" accentClass="text-emerald-600" />
-        <StatCard title="Tasks Moved" value={stats.tasksMoved} icon={ArrowRight} bgAccentClass="bg-blue-100" accentClass="text-blue-600" />
-        <StatCard title="Blockers" value={stats.blockers} icon={ShieldAlert} trend={stats.blockers > 0 ? "Needs Review" : ""} trendUp={false} bgAccentClass={stats.blockers > 0 ? "bg-red-100" : "bg-slate-100"} accentClass={stats.blockers > 0 ? "text-red-600" : "text-slate-400"} />
-        <StatCard title="Due Today" value={stats.dueToday} icon={Zap} bgAccentClass="bg-amber-100" accentClass="text-amber-600" />
-      </div>
-
-      {/* Main Two-Column Layout */}
-      <div className="grid lg:grid-cols-3 gap-6">
-
-        {/* Left Col (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-           <MyFocusQueue tasks={myQueue} />
-           <RecentActivity activities={recentActivity} />
-        </div>
-
-        {/* Right Col (1/3 width) */}
-        <div className="space-y-6">
-           <ActiveNow activeSessions={activeSessions} />
-           <BlockersPanel blockers={blockers} />
-
-           {/* Overdue snippet */}
-           {stats.overdue === 0 ? (
-             <div className="bg-white border border-border/50 rounded-2xl p-5 shadow-sm text-center">
-               <p className="text-sm font-medium text-muted-foreground">No overdue tasks. Perfect execution.</p>
-             </div>
-           ) : (
-             <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-5 shadow-sm">
-                <h3 className="text-amber-900 font-semibold text-sm mb-2">Overdue Tasks</h3>
-                <p className="text-amber-700/80 text-xs">You have {stats.overdue} tasks that missed their mark.</p>
-             </div>
-           )}
-        </div>
-      </div>
-
+      {overdue.length > 0 && <MyDayList title="Overdue" tasks={overdue} empty="" tone="warning" />}
+      <MyDayList title="Today" tasks={today} empty="Nothing planned for today. Add a task above or pull one from a project." />
+      <MyDayList title="Up next" tasks={upNext.slice(0, 10)} empty="No other open tasks assigned to you." />
     </div>
   )
 }
