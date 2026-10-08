@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
 import { pickDefaultProjectId } from '@/lib/tasks/default-project'
+import { toDeadlineIso } from '@/lib/tasks/deadline'
 
 const updateTaskStatusSchema = z.object({
   id: z.string().uuid(),
@@ -92,25 +93,44 @@ export async function markDone(id: string, projectId: string) {
 
 const assignOwnerSchema = z.object({
   id: z.string().uuid(),
-  ownerId: z.string().uuid(),
+  ownerId: z.string().uuid().nullable(),
   projectId: z.string().uuid()
 })
 
-export async function assignOwner(id: string, ownerId: string, projectId: string) {
+/** Assign (or, with `null`, unassign) a task, and log it to the activity feed. */
+export async function assignOwner(id: string, ownerId: string | null, projectId: string) {
   const validated = assignOwnerSchema.safeParse({ id, ownerId, projectId })
   if (!validated.success) {
     return { success: false, error: { message: 'Invalid input', details: validated.error.format() } }
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.from('tasks').update({
-    owner_id: validated.data.ownerId
-  }).eq('id', validated.data.id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: { message: 'Not authenticated' } }
+
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .update({ owner_id: validated.data.ownerId })
+    .eq('id', validated.data.id)
+    .select('id, project_id, workspace_id')
+    .maybeSingle()
 
   if (error) {
     console.error('Supabase error:', error);
     return { success: false, error: { message: 'A database error occurred', details: error.message } };
   }
+  // RLS turns a forbidden update into zero rows, not an error.
+  if (!task) return { success: false, error: { message: 'You do not have permission to assign this task' } }
+
+  // Best-effort: the assignment already succeeded; a feed failure must not undo it.
+  await supabase.from('task_activity').insert({
+    task_id: task.id,
+    project_id: task.project_id,
+    workspace_id: task.workspace_id,
+    user_id: user.id,
+    type: validated.data.ownerId ? 'assigned' : 'unassigned',
+    body: validated.data.ownerId,
+  })
 
   revalidatePath(`/dashboard/projects/${validated.data.projectId}`)
   revalidatePath('/dashboard/projects')
@@ -135,6 +155,12 @@ export async function createTask(data: any) {
     return { success: false, error: { message: 'Invalid input', details: validated.error.format() } }
   }
 
+  try {
+    if (validated.data.deadline) toDeadlineIso(validated.data.deadline)
+  } catch {
+    return { success: false, error: { message: 'Invalid deadline' } }
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -147,7 +173,7 @@ export async function createTask(data: any) {
     status: validated.data.status || 'backlog',
     owner_id: validated.data.owner_id || null,
     priority: validated.data.priority || 'medium',
-    deadline: validated.data.deadline ? new Date(validated.data.deadline).toISOString() : null,
+    deadline: validated.data.deadline ? toDeadlineIso(validated.data.deadline) : null,
     estimate_pomodoros: validated.data.estimate_pomodoros || 0,
     // NOTE: `tasks` has no `user_id` column — authorship is `created_by`
     // (`owner_id` is the assignee). Sending user_id made every insert fail with

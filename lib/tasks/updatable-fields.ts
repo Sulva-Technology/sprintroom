@@ -12,7 +12,7 @@ import { z } from 'zod'
  * `20260819120000_task_update_with_check.sql`; this is the app-side half.
  *
  * Deliberately excluded: `id`, `workspace_id`, `project_id`, `created_by`,
- * `owner_id` (has its own action, `assignTaskOwner`), `created_at`.
+ * `owner_id` (has its own action, `assignOwner`), `created_at`.
  */
 export const TASK_UPDATABLE_FIELDS = [
   'title',

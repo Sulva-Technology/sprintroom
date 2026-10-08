@@ -74,12 +74,3 @@ export async function addComment(taskId: string, content: string, projectId: str
   revalidatePath(`/dashboard/projects/${projectId}`)
   return { success: true }
 }
-
-export async function assignTaskOwner(id: string, ownerId: string | null, projectId: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('tasks').update({ owner_id: ownerId }).eq('id', id)
-  if (error) return { error: error.message }
-  
-  revalidatePath(`/dashboard/projects/${projectId}`)
-  return { success: true }
-}

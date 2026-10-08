@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
   Drawer,
   DrawerContent,
@@ -36,6 +36,7 @@ import {
 import { getTaskDetails } from "@/app/actions/task-fetcher";
 import { assignOwner } from "@/app/actions/tasks";
 import { StartFocusButton } from "@/components/focus/start-focus-button";
+import { TaskEditFields } from "@/components/tasks/task-edit-fields";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -137,7 +138,7 @@ export function TaskDetailDrawer({
 
   if (!open) return null;
 
-  const handleAssign = async (memberId: string) => {
+  const handleAssign = async (memberId: string | null) => {
     setAssigning(true);
     try {
       await assignOwner(taskId, memberId, projectId);
@@ -242,9 +243,6 @@ export function TaskDetailDrawer({
                   <span className="px-2.5 py-1 uppercase tracking-wider font-bold text-[10px] bg-slate-100 text-slate-700 rounded-md border border-slate-200">
                     {data.task.status}
                   </span>
-                  <span className="px-2.5 py-1 uppercase tracking-wider font-bold text-[10px] bg-rose-50 text-rose-700 rounded-md border border-rose-200">
-                    {data.task.priority} Priority
-                  </span>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -273,6 +271,12 @@ export function TaskDetailDrawer({
                       )}
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-52 rounded-xl">
+                      {data.task.owner_id && (
+                        <DropdownMenuItem onClick={() => handleAssign(null)} className="rounded-lg cursor-pointer gap-2 text-slate-500">
+                          <User className="w-4 h-4" />
+                          <span className="text-sm">Unassigned</span>
+                        </DropdownMenuItem>
+                      )}
                       {(data.members || []).length === 0 ? (
                         <div className="px-3 py-2 text-xs text-slate-400">No workspace members</div>
                       ) : (
@@ -298,11 +302,6 @@ export function TaskDetailDrawer({
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {data.task.deadline && (
-                    <div className="text-sm font-medium text-slate-600 ml-2">
-                      Due: {format(new Date(data.task.deadline), "MMM d, yyyy")}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -315,6 +314,17 @@ export function TaskDetailDrawer({
                 />
               </div>
             </div>
+
+            <TaskEditFields
+              key={`${data.task.id}-${data.task.updated_at}`}
+              taskId={taskId}
+              projectId={projectId}
+              workspaceId={data.task.workspace_id}
+              title={data.task.title}
+              priority={data.task.priority ?? "medium"}
+              deadline={data.task.deadline}
+              onSaved={fetchData}
+            />
 
             {/* Description */}
             <div className="mb-8 p-6 bg-slate-50/50 border border-slate-100 rounded-3xl">
