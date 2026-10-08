@@ -11,6 +11,8 @@ export default defineConfig({
     // The RLS harness needs a live local stack (`supabase start`, i.e. Docker) and
     // fails loudly rather than skipping, so it cannot sit in the default gate.
     // Run it with `npm run test:rls` once the stack is up.
-    exclude: ['**/node_modules/**', '**/dist/**', '__tests__/rls/**'],
+    // `__tests__/p0proof/` is a one-off proof harness with its own config
+    // (Deno stubs, snapshot copies of old code). Run it with `npm run test:p0`.
+    exclude: ['**/node_modules/**', '**/dist/**', '__tests__/rls/**', '__tests__/p0proof/**'],
   },
 })

@@ -11,7 +11,8 @@
     "clean": "next clean",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rls": "vitest run --dir __tests__/rls --exclude.0=!__tests__/rls"
+    "test:rls": "vitest run --dir __tests__/rls --exclude.0=!__tests__/rls",
+    "test:p0": "vitest run --config __tests__/p0proof/vitest.p0.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
