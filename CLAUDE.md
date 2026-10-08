@@ -44,9 +44,6 @@ Never hand-roll `supabase.from('workspace_members')...limit(1)` to pick a
 workspace. Each surface rolling its own unordered `[0]` is what made workspaces
 inconsistent; the cookie-then-stable-order rule lives in one place now.
 
-Known remaining violations — fix them when you touch the file, don't copy them:
-- [app/dashboard/finances/page.tsx:21](app/dashboard/finances/page.tsx#L21)
-
 Querying `workspace_members` for *members of an already-resolved workspace* is
 fine. Selecting a workspace that way is not.
 

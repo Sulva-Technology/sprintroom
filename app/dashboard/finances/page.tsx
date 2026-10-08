@@ -7,6 +7,8 @@ import { FinancialDashboard } from '@/components/finances/financial-dashboard'
 import { AddEntryDialog } from '@/components/finances/add-entry-dialog'
 import { Wallet, Info } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { resolveActiveWorkspaceId } from '@/lib/workspace/active-workspace'
+import { getWorkspaceRole } from '@/app/actions/roles'
 
 export default async function FinancesPage() {
   const supabase = await createClient()
@@ -16,15 +18,11 @@ export default async function FinancesPage() {
     redirect('/login')
   }
 
-  // 1. Get workspace membership
-  const { data: membership } = await supabase
-    .from('workspace_members')
-    .select('workspace_id, role')
-    .eq('user_id', user.id)
-    .limit(1)
-    .single()
+  // 1. Resolve the ACTIVE workspace through the shared resolver (same one the
+  // switcher, dashboard, projects and team pages use).
+  const workspaceId = await resolveActiveWorkspaceId()
 
-  if (!membership) {
+  if (!workspaceId) {
     return (
       <div className="p-8">
         <Alert variant="destructive">
@@ -38,8 +36,8 @@ export default async function FinancesPage() {
     )
   }
 
-  const workspaceId = membership.workspace_id
-  const isAdmin = ['admin', 'owner'].includes(membership.role)
+  const role = await getWorkspaceRole(workspaceId)
+  const isAdmin = role === 'owner' || role === 'admin'
 
   // 2. Fetch data in parallel
   const [entries, metrics, aiInsights, projects] = await Promise.all([
