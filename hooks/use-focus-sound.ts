@@ -29,7 +29,8 @@ export function useFocusSound() {
   useEffect(() => {
     if (!soundEnabled || typeof window === 'undefined') return
 
-    const names: SoundName[] = ['focus-start', 'focus-complete', 'warning', 'break-start', 'tick']
+    // 'tick' is synthesised by useTicking (Web Audio); don't preload the 246KB loop file.
+    const names: SoundName[] = ['focus-start', 'focus-complete', 'warning', 'break-start']
     names.forEach(name => {
       // Only create if we haven't already
       if (!audioRefs.current[name]) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Minimize2, X, AlertTriangle, ExternalLink, ShieldAlert, CheckCircle2, Bell, BellOff, Pause, Play } from 'lucide-react'
+import { Minimize2, AlertTriangle, ExternalLink, Maximize, ShieldAlert, CheckCircle2, Bell, BellOff, Pause, Play, Timer, TimerOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { SoundToggle } from './sound-toggle'
@@ -19,6 +19,8 @@ interface FocusTubeExpandedProps {
   distractionCount: number
   soundEnabled: boolean
   toggleSound: () => void
+  tickEnabled?: boolean
+  toggleTick?: () => void
   notificationsEnabled?: boolean
   toggleNotifications?: () => void
   isNotifSupported?: boolean
@@ -45,6 +47,8 @@ export function FocusTubeExpanded({
   distractionCount,
   soundEnabled,
   toggleSound,
+  tickEnabled = false,
+  toggleTick,
   notificationsEnabled = false,
   toggleNotifications,
   isNotifSupported = false,
@@ -65,7 +69,7 @@ export function FocusTubeExpanded({
   const isWarning = remainingMinutes <= 5 && remainingMinutes > 0 && !isComplete;
 
   return (
-    <div className="bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-2xl rounded-2xl w-[160px] overflow-hidden flex flex-col pointer-events-auto ring-1 ring-black/5">
+    <div className="bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-2xl rounded-2xl w-72 max-w-[calc(100vw-32px)] overflow-hidden flex flex-col pointer-events-auto ring-1 ring-black/5">
       <style jsx>{`
         @keyframes blink-red {
           0% { color: #ef4444; }
@@ -78,7 +82,7 @@ export function FocusTubeExpanded({
       `}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-1 py-1 border-b border-slate-100">
+      <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-100">
         <div className="flex items-center gap-0.5">
           {!isComplete && onTogglePause && (
             <Button
@@ -93,6 +97,19 @@ export function FocusTubeExpanded({
             </Button>
           )}
           <SoundToggle soundEnabled={soundEnabled} toggleSound={toggleSound} />
+          {toggleTick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTick}
+              disabled={!soundEnabled}
+              className={cn("rounded-full w-7 h-7 p-0 hover:bg-slate-100/50", tickEnabled && soundEnabled ? 'text-emerald-600' : 'text-slate-400')}
+              aria-label={tickEnabled ? "Turn ticking off" : "Turn ticking on"}
+              title={tickEnabled ? "Ticking on" : "Ticking off"}
+            >
+              {tickEnabled ? <Timer className="w-3.5 h-3.5" /> : <TimerOff className="w-3.5 h-3.5" />}
+            </Button>
+          )}
           {isNotifSupported && toggleNotifications && (
             <Button
               variant="ghost"
@@ -109,15 +126,13 @@ export function FocusTubeExpanded({
 
         <div className="flex items-center">
           {isPopoutSupported && !isPoppedOut && (
-            <Button variant="ghost" size="sm" onClick={onPopout} className="h-6 px-1 text-[9px] font-medium text-slate-500 hover:text-slate-900">
-              <ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Pop out
+            <Button variant="ghost" size="icon" onClick={onPopout} className="w-7 h-7 p-0 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100" aria-label="Pop out" title="Pop out">
+              <ExternalLink className="w-3.5 h-3.5" />
             </Button>
           )}
-          {!isPopoutSupported && (
-            <Button variant="ghost" size="sm" className="h-6 px-1 text-[9px] font-medium text-slate-500 hover:text-slate-900" render={<Link href={`/focus/${sessionId}`} />}>
-              <ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Full Screen
-            </Button>
-          )}
+          <Button variant="ghost" size="icon" className="w-7 h-7 p-0 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100" aria-label="Full screen" title="Full screen" render={<Link href={`/focus/${sessionId}`} />}>
+            <Maximize className="w-3.5 h-3.5" />
+          </Button>
 
           <Button variant="ghost" size="sm" onClick={onCollapse} className="w-7 h-7 p-0 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100">
             <Minimize2 className="w-3.5 h-3.5" />
@@ -126,14 +141,14 @@ export function FocusTubeExpanded({
       </div>
 
       {/* Content */}
-      <div className="p-2 flex flex-col items-center relative">
-        <div className="text-center mb-2 w-full">
-          {projectName && <div className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-0.5 truncate">{projectName}</div>}
-          <h3 className="text-[10px] font-semibold text-slate-900 truncate">{taskTitle}</h3>
+      <div className="p-4 flex flex-col items-center relative">
+        <div className="text-center mb-3 w-full">
+          {projectName && <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5 truncate">{projectName}</div>}
+          <h3 className="text-sm font-semibold text-slate-900 truncate">{taskTitle}</h3>
         </div>
 
         {/* Tube Timer */}
-        <div className="relative w-20 h-20 mb-2 rounded-full flex items-center justify-center p-1 shadow-inner bg-slate-50">
+        <div className="relative w-32 h-32 mb-3 rounded-full flex items-center justify-center shadow-inner bg-slate-50">
            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
               <circle
                 cx="50" cy="50" r="45"
@@ -152,7 +167,7 @@ export function FocusTubeExpanded({
               />
            </svg>
            <div className={cn(
-             "text-xl font-black font-mono tracking-tighter",
+             "text-3xl font-bold font-mono tabular-nums tracking-tight",
              isComplete ? 'text-emerald-600' : 'text-slate-800',
              isWarning && 'blink-red text-red-600',
              isPaused && !isComplete && 'text-amber-500'
@@ -160,7 +175,7 @@ export function FocusTubeExpanded({
              {isComplete ? '00:00' : formattedTime}
            </div>
            {isPaused && !isComplete && (
-             <div className="absolute -bottom-0.5 text-[7px] font-bold uppercase tracking-widest text-amber-500">Paused</div>
+             <div className="absolute bottom-5 text-[9px] font-bold uppercase tracking-widest text-amber-500">Paused</div>
            )}
         </div>
 
@@ -171,24 +186,24 @@ export function FocusTubeExpanded({
               placeholder="What did you get done?"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="resize-none h-12 text-xs bg-slate-50"
+              className="resize-none h-16 text-sm bg-slate-50"
             />
-            <Button onClick={() => onComplete(note)} className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm font-bold h-7 text-xs">
-              <CheckCircle2 className="w-3 h-3 mr-1" /> Log Session
+            <Button onClick={() => onComplete(note)} className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm font-bold h-9 text-sm">
+              <CheckCircle2 className="w-4 h-4 mr-1.5" /> Log Session
             </Button>
           </div>
         ) : (
-          <div className="flex w-full items-center justify-between gap-0.5">
-            <Button variant="outline" size="sm" onClick={onAddDistraction} className="rounded-xl flex-1 border-slate-200 text-slate-600 hover:text-amber-600 hover:bg-amber-50 group h-7 text-xs">
-              <ShieldAlert className="w-2.5 h-2.5 mr-0.5 group-hover:text-amber-500" />
+          <div className="flex w-full items-center justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={onAddDistraction} className="rounded-xl flex-1 border-slate-200 text-slate-600 hover:text-amber-600 hover:bg-amber-50 group h-9 text-xs">
+              <ShieldAlert className="w-3.5 h-3.5 mr-1 group-hover:text-amber-500" />
               {distractionCount > 0 ? `${distractionCount} Distractions` : '+ Distraction'}
             </Button>
 
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="rounded-xl px-1 border-slate-200 text-slate-400 hover:text-slate-900 h-7" />}>
-                <AlertTriangle className="w-3 h-3" />
+              <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="rounded-xl px-2.5 border-slate-200 text-slate-400 hover:text-slate-900 h-9" />}>
+                <AlertTriangle className="w-3.5 h-3.5" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-28 rounded-lg text-[10px]">
+              <DropdownMenuContent align="end" className="w-36 rounded-lg text-sm">
                 <DropdownMenuItem onClick={onEndEarly} className="font-medium py-1">
                   End Early
                 </DropdownMenuItem>

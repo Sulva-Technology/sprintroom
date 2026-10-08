@@ -7,6 +7,7 @@ import { FocusPopoutWindow } from './focus-popout-window'
 import { useFocusTimer } from '@/hooks/use-focus-timer'
 import { useFocusSound } from '@/hooks/use-focus-sound'
 import { useFocusNotifications } from '@/hooks/use-focus-notifications'
+import { useTicking } from '@/hooks/use-ticking'
 import { useDocumentPictureInPicture } from '@/hooks/use-document-picture-in-picture'
 import { incrementDistraction, cancelFocusSession, completeFocusSession, pauseFocusSession, resumeFocusSession } from '@/app/actions/focus'
 import { addToSyncQueue } from '@/lib/offline/sync-queue'
@@ -29,6 +30,7 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
 
   const {
     remainingSeconds,
+    elapsedSeconds,
     progressPercent,
     isComplete,
     isPaused,
@@ -43,6 +45,11 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
   })
 
   const remainingMinutes = Math.ceil(remainingSeconds / 60); // Calculate remaining minutes
+
+  const { tickEnabled, toggleTick } = useTicking({
+    elapsedSeconds,
+    running: Boolean(session) && session?.status === 'active' && soundEnabled && !isPaused && !isComplete,
+  })
 
   // Sound triggers
   const hasPlayedComplete = useRef(false)
@@ -140,6 +147,8 @@ export function FocusTube({ initialSession }: FocusTubeProps) {
     distractionCount: distractions,
     soundEnabled,
     toggleSound,
+    tickEnabled,
+    toggleTick,
     notificationsEnabled,
     toggleNotifications,
     isNotifSupported,

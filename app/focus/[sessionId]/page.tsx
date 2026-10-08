@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { FocusTimer } from "@/components/focus/focus-timer";
 import { CompleteFocusForm } from "@/components/focus/complete-focus-form";
 import { Button } from "@/components/ui/button";
@@ -33,11 +35,10 @@ export default async function FocusSessionPage({
   const project = task?.projects as any;
 
   if (session.status !== "active") {
-    // If it's already completed or cancelled, redirect to the project board
-    if (project?.id) {
-      redirect(`/dashboard/projects/${project.id}`);
-    }
-    return notFound();
+    // Already completed or cancelled: go back to the board (or Home for an
+    // instant session with no task). `projects(name)` has no id, so use the
+    // task's project_id.
+    redirect(task?.project_id ? `/dashboard/projects/${task.project_id}` : "/dashboard");
   }
 
   // Check if abandoned (duration + 2 hours)
@@ -84,22 +85,32 @@ export default async function FocusSessionPage({
     );
   }
 
+  const backHref = task?.project_id ? `/dashboard/projects/${task.project_id}` : "/dashboard";
+
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 font-sans">
-      {/* Top Header */}
-      <div className="flex items-center justify-center p-6 md:p-10 shrink-0">
-        <div className="text-center animate-in fade-in slide-in-from-top-4 duration-700">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">
-            {project?.name || "Unknown Project"}
-          </h3>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 max-w-2xl mx-auto">
-            {task?.title || "Unknown Task"}
+    <div className="flex min-h-dvh w-full flex-col bg-gradient-to-b from-slate-50 to-white font-sans">
+      <header className="flex items-center justify-between px-4 py-4 md:px-8">
+        <Link
+          href={backHref}
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Focus mode</span>
+        <span className="w-[76px]" aria-hidden="true" />
+      </header>
+
+      <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 pb-10 md:gap-12">
+        <div className="max-w-2xl text-center animate-in fade-in slide-in-from-top-4 duration-700">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+            {project?.name || (task ? "Project" : "Quick focus")}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+            {task?.title || "Deep work"}
           </h1>
         </div>
-      </div>
 
-      {/* Main Timer Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-0">
         <FocusTimer
           sessionId={session.id}
           startedAt={session.started_at}
@@ -108,7 +119,7 @@ export default async function FocusSessionPage({
           pausedAt={session.paused_at ?? null}
           totalPausedSeconds={session.total_paused_seconds ?? 0}
         />
-      </div>
+      </main>
     </div>
   );
 }

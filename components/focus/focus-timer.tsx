@@ -12,7 +12,9 @@ import { CompleteFocusForm } from "./complete-focus-form";
 import { useFocusTimer } from "@/hooks/use-focus-timer";
 import { useFocusSound } from "@/hooks/use-focus-sound";
 import { useFocusNotifications } from "@/hooks/use-focus-notifications";
-import { Pause, Play, Square, AlertCircle, Loader2 } from "lucide-react";
+import { useTicking } from "@/hooks/use-ticking";
+import { cn } from "@/lib/utils";
+import { Pause, Play, Square, AlertCircle, Loader2, Volume2, VolumeX, Timer, TimerOff } from "lucide-react";
 
 export function FocusTimer({
   sessionId,
@@ -38,13 +40,14 @@ export function FocusTimer({
   const [bankedPausedSeconds, setBankedPausedSeconds] = useState(initialTotalPausedSeconds);
   const [isPausePending, startPauseTransition] = useTransition();
 
-  const { playSound } = useFocusSound();
+  const { playSound, soundEnabled, toggleSound } = useFocusSound();
   const { showNotification } = useFocusNotifications();
   const hasPlayedComplete = useRef(false);
   const hasPlayedWarning = useRef(false);
 
   const {
     remainingSeconds,
+    elapsedSeconds,
     formattedTime,
     isComplete,
     isPaused,
@@ -58,6 +61,12 @@ export function FocusTimer({
   });
 
   const isFinished = isComplete || endedEarly;
+
+  // A ticking clock while the session runs (master sound switch still wins).
+  const { tickEnabled, toggleTick } = useTicking({
+    elapsedSeconds,
+    running: soundEnabled && !isPaused && !isFinished,
+  });
 
   // Fire warning + completion feedback once each.
   useEffect(() => {
@@ -131,98 +140,119 @@ export function FocusTimer({
   }
 
   const remainingFraction = remainingSeconds / (durationMinutes * 60);
+  const CIRCUMFERENCE = 2 * Math.PI * 46;
 
   return (
-    <div className="flex flex-col items-center animate-in zoom-in-95 duration-700">
-      <div className="relative flex justify-center items-center mb-12">
-        <div className="absolute inset-0 bg-primary/5 rounded-full scale-150 blur-3xl -z-10 animate-pulse" />
-
-        <svg
-          viewBox="0 0 100 100"
-          className="absolute w-[240px] h-[240px] md:w-[320px] md:h-[320px] -rotate-90 pointer-events-none"
-        >
-          <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="1" fill="none" className="text-slate-100" />
+    <div className="flex w-full max-w-xl flex-col items-center gap-8 md:gap-10 animate-in zoom-in-95 duration-700">
+      {/* Clock: the digits live INSIDE the ring and scale with it, so nothing
+          spills past the circle at any screen width. */}
+      <div className="relative aspect-square w-[min(78vw,24rem)]">
+        <div className="absolute inset-[12%] -z-10 rounded-full bg-primary/10 blur-3xl" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-200" />
           <circle
             cx="50"
             cy="50"
-            r="45"
-            stroke="currentColor"
-            strokeWidth="2"
+            r="46"
             fill="none"
-            className={isPaused ? "text-amber-400 transition-colors" : "text-primary transition-colors"}
-            strokeDasharray="282.74"
-            strokeDashoffset={282.74 - 282.74 * remainingFraction}
+            stroke="currentColor"
+            strokeWidth="2.5"
             strokeLinecap="round"
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={CIRCUMFERENCE * (1 - remainingFraction)}
+            className={cn(
+              "transition-[stroke-dashoffset] duration-1000 ease-linear",
+              isPaused ? "text-amber-400" : "text-indigo-500"
+            )}
           />
         </svg>
 
-        <div className="flex flex-col items-center relative z-10">
-          <div
-            className="text-[120px] md:text-[160px] font-bold font-mono tracking-tighter text-slate-900 leading-none tabular-nums"
-            style={{ fontVariantNumeric: "tabular-nums" }}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span
+            className={cn(
+              "font-mono font-bold leading-none tracking-tight tabular-nums text-[clamp(3rem,15vw,5.5rem)]",
+              isPaused ? "text-amber-500" : "text-slate-900"
+            )}
+            role="timer"
+            aria-live="off"
           >
             {formattedTime}
-          </div>
-          {isPaused && (
-            <span className="text-sm font-bold uppercase tracking-widest text-amber-500 mt-2">Paused</span>
-          )}
+          </span>
+          <span
+            className={cn(
+              "mt-3 text-[11px] font-semibold uppercase tracking-[0.2em]",
+              isPaused ? "text-amber-500" : "text-slate-400"
+            )}
+          >
+            {isPaused ? "Paused" : `Focus · ${durationMinutes} min`}
+          </span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-4">
+      {/* Primary controls */}
+      <div className="grid w-full max-w-md grid-cols-2 gap-3">
         <Button
-          variant="outline"
           size="lg"
           onClick={handleTogglePause}
           disabled={isPausePending}
-          className="rounded-full h-14 px-6 border-slate-200 hover:bg-slate-50 text-sm font-bold shadow-sm transition-all"
+          className="h-12 rounded-full text-sm font-bold shadow-sm"
         >
-          {isPaused ? (
-            <>
-              <Play className="w-4 h-4 mr-2 text-primary" />
-              Resume
-            </>
-          ) : (
-            <>
-              <Pause className="w-4 h-4 mr-2 text-slate-500" />
-              Pause
-            </>
-          )}
+          {isPaused ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}
+          {isPaused ? "Resume" : "Pause"}
         </Button>
-
         <Button
+          size="lg"
           variant="outline"
-          size="lg"
-          onClick={handleDistraction}
-          className="rounded-full h-14 px-6 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 text-sm font-bold shadow-sm transition-all"
+          onClick={handleEndEarly}
+          className="h-12 rounded-full bg-white text-sm font-bold"
         >
-          <AlertCircle className="w-4 h-4 mr-2 text-amber-500" />
-          Log Distraction
+          End early
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={handleDistraction}
+          className="h-12 rounded-full bg-white text-sm font-bold hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+        >
+          <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
+          Distracted
           {distractions > 0 && (
-            <span className="ml-2 bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md text-xs">
-              {distractions}
-            </span>
+            <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">{distractions}</span>
           )}
         </Button>
-
         <Button
           size="lg"
-          onClick={handleEndEarly}
-          className="rounded-full h-14 px-8 text-sm font-bold shadow-md bg-slate-900 hover:bg-slate-800 hover:-translate-y-0.5 transition-all text-white"
-        >
-          End Early
-        </Button>
-
-        <Button
           variant="ghost"
-          size="lg"
           onClick={handleCancel}
           disabled={isCancelling}
-          className="rounded-full h-14 w-14 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-          title="Cancel session"
+          className="h-12 rounded-full text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600"
         >
-          {isCancelling ? <Loader2 className="w-5 h-5 animate-spin" /> : <Square className="w-5 h-5" />}
+          {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Square className="mr-2 h-4 w-4" />}
+          Cancel
         </Button>
+      </div>
+
+      {/* Sound settings */}
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-pressed={soundEnabled}
+          className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50"
+        >
+          {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          Sound {soundEnabled ? "on" : "off"}
+        </button>
+        <button
+          type="button"
+          onClick={toggleTick}
+          disabled={!soundEnabled}
+          aria-pressed={tickEnabled}
+          className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {tickEnabled ? <Timer className="h-3.5 w-3.5" /> : <TimerOff className="h-3.5 w-3.5" />}
+          Ticking {tickEnabled ? "on" : "off"}
+        </button>
       </div>
     </div>
   );
