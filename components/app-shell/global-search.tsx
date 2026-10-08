@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
 import { Search, FolderKanban, CheckSquare, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { searchWorkspace } from '@/app/actions/search'
 
 export function GlobalSearch() {
   const [open, setOpen] = React.useState(false)
@@ -12,7 +12,6 @@ export function GlobalSearch() {
   const [results, setResults] = React.useState<{ tasks: any[], projects: any[] }>({ tasks: [], projects: [] })
   const [loading, setLoading] = React.useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   // Toggle the menu when ⌘K is pressed
   React.useEffect(() => {
@@ -37,21 +36,18 @@ export function GlobalSearch() {
 
     const timer = setTimeout(async () => {
       setLoading(true)
-      
-      const [tasksResult, projectsResult] = await Promise.all([
-        supabase.from('tasks').select('id, title, project_id').ilike('title', `%${search}%`).limit(5),
-        supabase.from('projects').select('id, name').ilike('name', `%${search}%`).limit(5)
-      ])
-
-      setResults({
-        tasks: tasksResult.data || [],
-        projects: projectsResult.data || []
-      })
-      setLoading(false)
+      try {
+        setResults(await searchWorkspace(search))
+      } catch {
+        // Offline or server error: show no results rather than crash the palette.
+        setResults({ tasks: [], projects: [] })
+      } finally {
+        setLoading(false)
+      }
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timer)
-  }, [search, supabase])
+  }, [search])
 
   const handleSelect = (url: string) => {
     setOpen(false)
