@@ -5,31 +5,26 @@ export interface RealtimeSubscriptionConfig {
   filter?: string
 }
 
+const WORKSPACE_REALTIME_TABLES = [
+  'tasks',
+  'projects',
+  'focus_sessions',
+  'task_comments',
+  'task_activity',
+  'workspace_members',
+] as const
+
 export function getWorkspaceRealtimeSubscriptions(workspaceId?: string): RealtimeSubscriptionConfig[] {
   if (!workspaceId) {
     return []
   }
 
-  return [
-    {
-      event: '*',
-      schema: 'public',
-      table: 'tasks',
-      filter: `workspace_id=eq.${workspaceId}`,
-    },
-    {
-      event: '*',
-      schema: 'public',
-      table: 'projects',
-      filter: `workspace_id=eq.${workspaceId}`,
-    },
-    {
-      event: '*',
-      schema: 'public',
-      table: 'focus_sessions',
-      filter: `workspace_id=eq.${workspaceId}`,
-    },
-  ]
+  return WORKSPACE_REALTIME_TABLES.map((table) => ({
+    event: '*' as const,
+    schema: 'public' as const,
+    table,
+    filter: `workspace_id=eq.${workspaceId}`,
+  }))
 }
 
 export function getUserFocusSessionSubscription(userId: string): RealtimeSubscriptionConfig {

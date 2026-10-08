@@ -28,6 +28,24 @@ describe('realtime subscription helpers', () => {
         table: 'focus_sessions',
         filter: 'workspace_id=eq.workspace-123',
       },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'task_comments',
+        filter: 'workspace_id=eq.workspace-123',
+      },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'task_activity',
+        filter: 'workspace_id=eq.workspace-123',
+      },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'workspace_members',
+        filter: 'workspace_id=eq.workspace-123',
+      },
     ])
   })
 
