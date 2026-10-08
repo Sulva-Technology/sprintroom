@@ -6,7 +6,10 @@ export type CommandAction =
   | { id: string; kind: 'start-focus'; label: string; keywords: string }
 
 /** Destinations reachable from ⌘K that are not in the main nav. */
-export const EXTRA_DESTINATIONS: { href: string; label: string }[] = [{ href: '/dashboard/invites', label: 'Invites' }]
+export const EXTRA_DESTINATIONS: { href: string; label: string }[] = [
+  { href: '/dashboard/inbox', label: 'Inbox' },
+  { href: '/dashboard/invites', label: 'Invites' },
+]
 
 function staticActions(): CommandAction[] {
   const destinations = [...NAV_ITEMS.map(({ href, label }) => ({ href, label })), ...EXTRA_DESTINATIONS]

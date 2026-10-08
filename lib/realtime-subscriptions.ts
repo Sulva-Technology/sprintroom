@@ -35,3 +35,12 @@ export function getUserFocusSessionSubscription(userId: string): RealtimeSubscri
     filter: `user_id=eq.${userId}`,
   }
 }
+
+export function getUserNotificationSubscription(userId: string): RealtimeSubscriptionConfig {
+  return {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'notifications',
+    filter: `user_id=eq.${userId}`,
+  }
+}

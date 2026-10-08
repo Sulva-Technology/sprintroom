@@ -162,3 +162,52 @@ describe('cycles', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('notifications', () => {
+  async function inbox(user: string, type: string) {
+    const { data } = await admin
+      .from('notifications')
+      .select('id, actor_id')
+      .eq('user_id', ids[user])
+      .eq('task_id', row.taskW)
+      .eq('type', type)
+    return data ?? []
+  }
+
+  it('assigning a task notifies the assignee, not the actor', async () => {
+    gate()
+    await cli.owner.from('tasks').update({ owner_id: ids.member }).eq('id', row.taskW)
+    expect(await inbox('member', 'assigned')).toHaveLength(1)
+    expect(await inbox('owner', 'assigned')).toHaveLength(0)
+  })
+
+  it('a comment notifies the owner and creator, never the commenter', async () => {
+    gate()
+    await cli.member
+      .from('task_comments')
+      .insert({ task_id: row.taskW, user_id: ids.member, content: 'on it', workspace_id: row.wsW, project_id: row.projectW })
+    expect(await inbox('owner', 'comment')).toHaveLength(1)
+    expect(await inbox('member', 'comment')).toHaveLength(0)
+  })
+
+  it('marking blocked notifies the owner and creator except the actor', async () => {
+    gate()
+    await cli.owner.from('tasks').update({ status: 'blocked', blocked_reason: 'waiting on API' }).eq('id', row.taskW)
+    expect(await inbox('member', 'blocked')).toHaveLength(1)
+    expect(await inbox('owner', 'blocked')).toHaveLength(0)
+  })
+
+  it('users only see their own notifications', async () => {
+    gate()
+    const { data } = await cli.owner.from('notifications').select('id').eq('user_id', ids.member)
+    expect(data ?? []).toHaveLength(0)
+  })
+
+  it('clients cannot forge notifications', async () => {
+    gate()
+    const { error } = await cli.member
+      .from('notifications')
+      .insert({ user_id: ids.owner, workspace_id: row.wsW, type: 'assigned', body: 'fake' })
+    expect(error).not.toBeNull()
+  })
+})

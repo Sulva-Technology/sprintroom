@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { getWorkspaceRealtimeSubscriptions } from '@/lib/realtime-subscriptions'
+import { getUserNotificationSubscription, getWorkspaceRealtimeSubscriptions } from '@/lib/realtime-subscriptions'
 
-export function useRealtimeSync(workspaceId?: string) {
+export function useRealtimeSync(workspaceId?: string, userId?: string) {
   const router = useRouter()
   const pathname = usePathname()
   const [supabase] = useState(() => createClient())
@@ -14,7 +14,7 @@ export function useRealtimeSync(workspaceId?: string) {
     const workspaceSubscriptions = getWorkspaceRealtimeSubscriptions(workspaceId)
     const shouldWatchRhythmLogs = pathname.startsWith('/dashboard/rhythms')
 
-    if (workspaceSubscriptions.length === 0 && !shouldWatchRhythmLogs) {
+    if (workspaceSubscriptions.length === 0 && !shouldWatchRhythmLogs && !userId) {
       return
     }
 
@@ -22,6 +22,12 @@ export function useRealtimeSync(workspaceId?: string) {
 
     for (const subscription of workspaceSubscriptions) {
       channel = channel.on('postgres_changes', subscription, () => {
+        router.refresh()
+      })
+    }
+
+    if (userId) {
+      channel = channel.on('postgres_changes', getUserNotificationSubscription(userId), () => {
         router.refresh()
       })
     }
@@ -45,5 +51,5 @@ export function useRealtimeSync(workspaceId?: string) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [pathname, router, supabase, workspaceId])
+  }, [pathname, router, supabase, workspaceId, userId])
 }

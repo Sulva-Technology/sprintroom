@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { SyncStatusPill } from '@/components/offline/sync-status-pill'
 import { GlobalSearch } from './global-search'
 import { WorkspaceSwitcher } from './workspace-switcher'
+import { InboxBell } from './inbox-bell'
 
 export function Topbar({
   user,
@@ -17,14 +18,16 @@ export function Topbar({
   activeFocus,
   workspaces,
   activeWorkspaceId,
-  canEdit
+  canEdit,
+  unreadCount
 }: {
   user: any,
   profile: any,
   activeFocus: any,
   workspaces: any[],
   activeWorkspaceId?: string,
-  canEdit?: boolean
+  canEdit?: boolean,
+  unreadCount?: number
 }) {
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -43,6 +46,7 @@ export function Topbar({
       </div>
       
       <div className="flex items-center gap-3">
+        <InboxBell count={unreadCount ?? 0} />
         <SyncStatusPill onClick={() => document.getElementById('sync-pill-portal-target')?.click()} />
         
         {activeFocus && (
